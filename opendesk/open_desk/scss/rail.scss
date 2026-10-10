@@ -333,7 +333,7 @@ body .modal .opendesk-arrange-letter {
 	}
 }
 
-// The module column (see "Module Column" in the script): the app's modules in a column of their
+// The module column (see "Three Column" in the script): the app's modules in a column of their
 // own, between the rail and the sidebar. In flow, so the page starts after it; folded it keeps
 // only its icons, and a folded column that peeks opens its panel over the sidebar instead of
 // moving the page. The rows borrow the sidebar's own look.
@@ -549,6 +549,492 @@ body.opendesk-column-on .opendesk-module-column:not(.hidden) {
 @media (prefers-reduced-motion: reduce) {
 	.opendesk-module-column,
 	.opendesk-column-panel {
+		transition: none !important;
+	}
+}
+
+// The band of module tabs (see "Module Tabs" in the script): the app's modules across the top, over
+// the sidebar and the page, right of the rail. Fixed rather than in flow, because the body is a row
+// of columns (rail, sidebar, page); the sidebar and the page are moved down under it and made that
+// much shorter instead, so the page is still the box that scrolls and Frappe's sticky page head
+// still sticks to its top.
+:root {
+	--opendesk-tabs-height: 40px;
+}
+
+.opendesk-module-tabs {
+	display: none;
+}
+
+body.opendesk-tabs-on {
+	.opendesk-module-tabs:not(.hidden) {
+		display: flex;
+		align-items: stretch;
+		gap: 4px;
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: var(--opendesk-tabs-height);
+		padding: 0 8px 0 12px;
+		background: var(--desk-sidebar-bg);
+		border-bottom: 1px solid var(--outline-gray-1);
+		// Over the sidebar (1020) and its drawers, under the rail (1030) and the menus.
+		z-index: 1022;
+		transition: background 0.2s ease;
+
+		// Another app on show, with Show Its Modules: the band is a choice to make, not where you
+		// are.
+		&.opendesk-tabs-browsing {
+			background: var(--surface-gray-2);
+		}
+	}
+
+	// Beside a pinned rail the band starts where the rail ends; a floating rail is drawn over it.
+	&.dock-pinned.dock-active .opendesk-module-tabs {
+		left: calc(var(--dock-width) + 1px);
+	}
+
+	.body-sidebar-container,
+	.main-section {
+		margin-top: var(--opendesk-tabs-height);
+	}
+
+	.body-sidebar,
+	.sidebar-panel,
+	.main-section {
+		height: calc(100vh - var(--opendesk-tabs-height)); // fallback for engines without dvh
+		height: calc(100dvh - var(--opendesk-tabs-height));
+	}
+}
+
+// The app's mark and name, first, as the header names it in the other pickers.
+.opendesk-tabs-app {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 8px;
+	max-width: 200px;
+	padding-right: 12px;
+	margin-right: 4px;
+	border-right: 1px solid var(--outline-gray-1);
+	margin-block: 10px;
+
+	.opendesk-tabs-mark {
+		display: flex;
+		flex: 0 0 auto;
+		width: 20px;
+		height: 20px;
+		align-items: center;
+		justify-content: center;
+
+		img,
+		svg {
+			max-width: 20px;
+			max-height: 20px;
+		}
+	}
+
+	.opendesk-tabs-title {
+		font-size: var(--text-base);
+		font-weight: 600;
+		color: var(--ink-gray-9);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+}
+
+// The tabs that fit; the rest are hidden here and listed under More (`fit_tabs`).
+.opendesk-tabs-row {
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	align-items: stretch;
+	gap: 2px;
+	overflow: hidden;
+}
+
+.opendesk-tab {
+	position: relative;
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 4px;
+	padding: 0 10px;
+	color: var(--ink-gray-6);
+	font-size: var(--text-sm);
+	white-space: nowrap;
+
+	&:hover {
+		color: var(--ink-gray-9);
+	}
+
+	// The open module, underlined where the band meets the page.
+	&.active {
+		color: var(--ink-gray-9);
+		font-weight: 500;
+
+		&::after {
+			content: "";
+			position: absolute;
+			left: 8px;
+			right: 8px;
+			bottom: -1px;
+			border-bottom: 2px solid var(--ink-gray-9);
+		}
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--ink-gray-9);
+		outline-offset: -6px;
+		border-radius: var(--radius);
+	}
+
+	&.hidden {
+		display: none;
+	}
+
+	.icon {
+		width: 12px;
+		height: 12px;
+	}
+}
+
+// A Category or Spacer starting a group: a short rule before its first tab.
+.opendesk-tab.opendesk-tab-group {
+	margin-left: 9px;
+
+	&::before {
+		content: "";
+		position: absolute;
+		left: -6px;
+		top: 12px;
+		bottom: 12px;
+		border-left: 1px solid var(--outline-gray-2);
+	}
+}
+
+.opendesk-tabs-more {
+	display: flex;
+	flex: 0 0 auto;
+
+	&.hidden {
+		display: none;
+	}
+}
+
+.opendesk-tabs-tools {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 2px;
+}
+
+.opendesk-tabs-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: var(--radius);
+	color: var(--ink-gray-6);
+
+	&:hover {
+		background: var(--surface-gray-3);
+		color: var(--ink-gray-8);
+	}
+
+	&.hidden {
+		display: none;
+	}
+}
+
+// Below 768px there is no band, at once, before the script has redrawn (`resize.opendesk-tabs`).
+@media (max-width: 767px) {
+	body.opendesk-tabs-on {
+		.opendesk-module-tabs:not(.hidden) {
+			display: none;
+		}
+
+		.body-sidebar-container,
+		.main-section {
+			margin-top: 0;
+		}
+
+		.body-sidebar,
+		.sidebar-panel,
+		.main-section {
+			height: 100vh;
+			height: 100dvh;
+		}
+	}
+}
+
+// Sliding Sidebar (see the script): the row above a module's content that goes back to its app's
+// module list, quieter than the content under it and set a little apart from it.
+.opendesk-back-row {
+	margin-bottom: 6px;
+
+	.sidebar-item-label {
+		color: var(--ink-gray-6);
+	}
+}
+
+// Sliding Sidebar: a header with nothing in its menu is a label, and Edit Sidebar sits in the
+// sidebar's lower right corner, over the rows' bottom padding, while the sidebar is open.
+// Module Tabs: beside the band the sidebar's header is not drawn at all.
+.sidebar-header.opendesk-header-hidden {
+	display: none;
+}
+
+.sidebar-header.opendesk-header-plain {
+	cursor: default;
+
+	&:hover {
+		background: transparent;
+	}
+}
+
+.opendesk-edit-sidebar {
+	position: absolute;
+	right: 10px;
+	bottom: 10px;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: var(--radius);
+	background: var(--desk-sidebar-bg);
+	color: var(--ink-gray-5);
+
+	&:hover {
+		background: var(--surface-gray-3);
+		color: var(--ink-gray-8);
+	}
+
+	&.hidden,
+	.body-sidebar-container:not(.expanded) & {
+		display: none;
+	}
+}
+
+// App Menu: the rail's mark is the app's, so the sidebar's header is its words alone, starting
+// where the rows' icons do. Scoped as the rule above that shows the mark beside a pinned rail, so
+// as to win over it.
+body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no-mark {
+	padding-left: 12px;
+
+	.header-logo {
+		display: none;
+	}
+}
+
+@media (min-width: 768px) {
+	body.opendesk-rail-on.dock-pinned.dock-active
+		.body-sidebar-container.expanded
+		.sidebar-header.opendesk-header-no-mark {
+		padding-left: 12px;
+
+		.header-logo {
+			display: none;
+		}
+	}
+}
+
+// App Menu (see the script): a rule between groups of the app's modules on the rail.
+.opendesk-rail-rule {
+	flex: 0 0 auto;
+	width: 24px;
+	height: 1px;
+	margin: 0 auto;
+	background: var(--dock-rule);
+}
+
+// Accordion Rail (see the script): the open app's modules under its tile, a smaller tile each, on
+// a tray of their own so they read as the app's and not as more apps. The tray slides open and
+// shut by its rows, so nothing has to know its height.
+.opendesk-rail-group {
+	display: grid;
+	flex: 0 0 auto;
+	grid-template-rows: 1fr;
+	width: var(--dock-tile);
+	// Closer to the tile it belongs to than to the next app.
+	margin-top: -3px;
+	border-radius: 12px;
+	background: var(--dock-tile-hover);
+	transition: grid-template-rows 0.25s ease-in-out, opacity 0.2s ease, margin 0.25s ease-in-out;
+
+	&.opendesk-rail-group-folded {
+		grid-template-rows: 0fr;
+		opacity: 0;
+		// Folded, it gives back the gap it took between two apps as well.
+		margin-top: -6px;
+	}
+}
+
+.opendesk-rail-group-inner {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	min-height: 0;
+	overflow: hidden;
+
+	// The tray's padding, as blocks rather than padding, which would keep it from folding to nothing.
+	&::before,
+	&::after {
+		content: "";
+		flex: 0 0 4px;
+	}
+}
+
+.opendesk-rail-module {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 9px;
+	color: var(--dock-ink);
+	--icon-stroke: currentColor;
+	transition: background-color 0.15s ease, color 0.15s ease;
+
+	&:hover {
+		color: var(--dock-ink-strong);
+	}
+
+	&.active {
+		background: var(--dock-tile-active);
+		color: var(--dock-ink-strong);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--dock-ink-strong);
+		outline-offset: 1px;
+	}
+}
+
+.opendesk-rail-group-rule {
+	flex: 0 0 auto;
+	width: 16px;
+	height: 1px;
+	margin: 2px 0;
+	background: var(--dock-rule);
+}
+
+// Accordion Sidebar (see the script): the app's modules as a stack of panels in the sidebar, one
+// open at a time. Each module is a filled bar, taller and bolder than the rows, its chevron at the
+// right turning over when it opens; the open module's bar darkens and its rows sit on a lighter
+// panel joined to the bar's foot, so a bar never reads as one more row. Scoped under
+// `.body-sidebar` to outweigh Frappe's own row rules there.
+.body-sidebar .opendesk-accordion-module {
+	margin-top: 4px;
+
+	&:first-child {
+		margin-top: 0;
+	}
+
+	.standard-sidebar-item {
+		margin: 0;
+		border-radius: var(--radius);
+		background: var(--surface-gray-2);
+	}
+
+	.standard-sidebar-item:hover {
+		background: var(--surface-gray-3);
+	}
+
+	.item-anchor {
+		height: 34px;
+		color: var(--ink-gray-8);
+	}
+
+	.sidebar-item-label {
+		font-weight: 600;
+		color: var(--ink-gray-8);
+	}
+
+	.sidebar-item-control {
+		margin-left: auto;
+		padding-right: 8px;
+		color: var(--ink-gray-6);
+
+		.icon {
+			transition: transform 0.25s ease-in-out;
+		}
+	}
+
+	// The open panel's bar: darker, its name in the strongest ink, its chevron turned over, and
+	// square at the foot where its panel joins it.
+	&.opendesk-accordion-open {
+		.standard-sidebar-item {
+			background: var(--surface-gray-3);
+			border-radius: var(--radius) var(--radius) 0 0;
+		}
+
+		.sidebar-item-label {
+			color: var(--ink-gray-9);
+		}
+
+		.sidebar-item-control .icon {
+			transform: rotate(180deg);
+		}
+	}
+
+	// A Category or Spacer starts a new group of modules: more room above it.
+	&.opendesk-accordion-group {
+		margin-top: 12px;
+	}
+}
+
+// A panel's rows, under its bar: a lighter panel framed on three sides, the bar its top edge.
+.opendesk-accordion-content {
+	display: grid;
+	grid-template-rows: 1fr;
+	border: 1px solid var(--surface-gray-3);
+	border-top: none;
+	border-radius: 0 0 var(--radius) var(--radius);
+	background: var(--surface-base);
+	transition: grid-template-rows 0.25s ease-in-out, opacity 0.25s ease-in-out;
+
+	&.opendesk-accordion-folded {
+		grid-template-rows: 0fr;
+		opacity: 0;
+	}
+}
+
+.opendesk-accordion-rows {
+	min-height: 0;
+	overflow: hidden;
+	padding: 0 4px;
+
+	// What Frappe gives a section heading among the sidebar's own rows, which these no longer are.
+	> .section-item:has(.section-break):not(:first-child) {
+		margin-top: 16px;
+	}
+
+	// Space above and below the rows, as blocks rather than padding, which would keep them from
+	// folding to nothing.
+	&::before,
+	&::after {
+		content: "";
+		display: block;
+		height: 2px;
+	}
+
+	&::after {
+		height: 8px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.opendesk-rail-group,
+	.opendesk-accordion-content,
+	.opendesk-accordion-module .sidebar-item-control .icon {
 		transition: none !important;
 	}
 }

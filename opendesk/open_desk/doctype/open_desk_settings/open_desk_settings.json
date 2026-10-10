@@ -6,7 +6,7 @@
  "engine": "InnoDB",
  "issingle": 1,
  "links": [],
- "modified": "2026-10-08 23:00:00.000000",
+ "modified": "2026-10-10 14:48:21.475958",
  "modified_by": "Administrator",
  "module": "Open Desk",
  "name": "Open Desk Settings",
@@ -20,9 +20,11 @@
   "overrides_section",
   "overrides_column",
   "enable_navigation_rail",
-  "module_picker",
+  "app_pick",
   "enable_apps_screen",
-  "moves_column",
+  "layout_column",
+  "module_picker",
+  "other_tweaks_section",
   "enable_rail_tools",
   "enable_user_menu"
  ],
@@ -39,19 +41,19 @@
   },
   {
    "default": "0",
-   "description": "Turns the Dock, the column left of the sidebar, into a rail of apps: the Desk Apps, then each installed app Frappe lists on its Apps screen, with every module left over under Other. Picking an app offers its modules, as Module Picker says.",
+   "description": "Turns the Dock, the column left of the sidebar, into a rail of apps: the Desk Apps, then each installed app Frappe lists on its Apps screen, with every module left over under Other. What picking an app does, and where its modules are shown, are the two settings it brings with it.",
    "fieldname": "enable_navigation_rail",
    "fieldtype": "Check",
    "label": "Override Navigation Rail"
   },
   {
-   "default": "Header Menu",
-   "read_only_depends_on": "eval:!doc.enable_navigation_rail",
-   "description": "Where picking an app on the rail offers its modules. Header Menu: the menu at the top of the sidebar opens on the app's modules over the page you are on, the sidebar always holds the module's content, and the header names the app over its module. Sidebar List: the sidebar's rows become the app's modules until you pick one, and the header names the module over its app. Module Column: the app's modules get a column of their own between the rail and the sidebar, which folds to its icons and opens over the sidebar while pointed at; the sidebar always holds the module's content.",
-   "fieldname": "module_picker",
+   "default": "Open Last Module",
+   "description": "What picking an app on the rail does, whichever Module Picker:<ul style=\"padding-left: 1.2em; margin: 4px 0 0;\"><li><b>Open Last Module</b>: goes into the app, to the module last open in it in this browser (its first, the first time). Picking the app you are already in shows its modules.</li><li><b>Open Last Sidebar Item</b>: the same, but to the sidebar item last open in the app, such as a list or a report, rather than its module's home; to the last module where there is none.</li><li><b>Show Its Modules</b>: shows the app's modules over the page you are on, until you pick one; Escape, a click elsewhere or another page puts them away.</li></ul>",
+   "fieldname": "app_pick",
    "fieldtype": "Select",
-   "label": "Module Picker",
-   "options": "Header Menu\nSidebar List\nModule Column"
+   "label": "Picking an App",
+   "options": "Open Last Module\nOpen Last Sidebar Item\nShow Its Modules",
+   "depends_on": "eval:doc.enable_navigation_rail"
   },
   {
    "default": "0",
@@ -61,9 +63,24 @@
    "label": "Override Desktop Icons"
   },
   {
-   "fieldname": "moves_column",
+   "fieldname": "layout_column",
    "fieldtype": "Column Break",
-   "label": "Moves"
+   "label": "Layout",
+   "depends_on": "eval:doc.enable_navigation_rail"
+  },
+  {
+   "default": "Module Menu",
+   "description": "Where an app's modules are shown:<ul style=\"padding-left: 1.2em; margin: 4px 0 0;\"><li><b>Module Menu</b>: the menu at the top of the sidebar lists the app's modules. The sidebar always holds the module's content.</li><li><b>App Menu</b>: as Frappe's own rail: the app's mark at the top and its modules under it, one icon each. The mark opens a menu of the apps, in place of the Apps screen.</li><li><b>Sliding Sidebar</b>: the sidebar's rows become the app's modules when you pick the app, until you pick one; a row at the top of a module's content goes back to the list.</li><li><b>Module Tabs</b>: the modules are tabs in a band across the top, over the sidebar and the page, with the app's name first. Tabs that do not fit go under More.</li><li><b>Three Column</b>: the modules get a column of their own between the rail and the sidebar. It folds to icons and opens over the sidebar while pointed at.</li><li><b>Accordion Rail</b>: the open app's tile opens up on the rail to show its modules under it, one icon each; clicking the open app folds them away.</li><li><b>Accordion Sidebar</b>: the sidebar lists the app's modules as headings, the open module's content under its own.</li></ul>Below 768px, all but Sliding Sidebar and Accordion Sidebar pick from the menu at the top of the sidebar.",
+   "fieldname": "module_picker",
+   "fieldtype": "Select",
+   "label": "Module Picker",
+   "options": "Module Menu\nApp Menu\nSliding Sidebar\nModule Tabs\nThree Column\nAccordion Rail\nAccordion Sidebar",
+   "depends_on": "eval:doc.enable_navigation_rail"
+  },
+  {
+   "fieldname": "other_tweaks_section",
+   "fieldtype": "Section Break",
+   "label": "Other Interface Tweaks"
   },
   {
    "default": "0",
@@ -71,7 +88,7 @@
    "fieldtype": "Check",
    "label": "Move Search and Notifications to Rail",
    "description": "Moves Search and Notifications, and any tiles other apps add there (such as To Do), from the top of the sidebar to the foot of the rail, where their drawers open beside the rail. Turned off, they stay where Frappe puts them. Needs Override Navigation Rail.",
-   "read_only_depends_on": "eval:!doc.enable_navigation_rail"
+   "depends_on": "eval:doc.enable_navigation_rail"
   },
   {
    "default": "0",

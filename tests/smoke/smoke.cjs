@@ -1,7 +1,7 @@
 // A browser smoke test for Open Desk: the rail, its module picker and tools, the user menu, Manage
 // Desk Apps and Manage Modules, and the Apps screen, on a running site, as one user. The module picker
-// is checked in whichever form Open Desk Settings' Module Picker gives it: Header Menu, Sidebar
-// List or Module Column.
+// is checked in whichever form Open Desk Settings' Module Picker gives it: Module Menu,
+// Sliding Sidebar, Three Column, Module Tabs, Accordion Rail or Accordion Sidebar.
 //
 // It only reads. Every editor it opens is closed without saving, and it changes no setting: what it
 // checks is whatever the site has switched on (Open Desk Settings), and a feature switched off is
@@ -24,6 +24,12 @@ const PASSWORD = process.env.OPENDESK_SMOKE_PASSWORD;
 // logs out at the end, which ends that session too.
 const SID = process.env.OPENDESK_SMOKE_SID;
 const HEADED = process.env.OPENDESK_SMOKE_HEADED === "1";
+// A module picker to check in place of the site's -- app_menu, header, sidebar, column, tabs,
+// accordion_rail or accordion_sidebar -- written into the desk's boot as each page loads, so the
+// setting itself is never changed.
+const PICKER = process.env.OPENDESK_SMOKE_PICKER;
+// And what picking an app does, "enter", "enter_item" or "offer", the same way.
+const APP_PICK = process.env.OPENDESK_SMOKE_APP_PICK;
 
 if (!BASE || !(PASSWORD || SID)) {
   console.error(
@@ -67,10 +73,20 @@ async function close_dialogs(page) {
   }
 }
 
-// The sidebar header, when its menu would hold a single row (Edit Sidebar beside the Module
-// Column), is a plain button that runs that row and names it in its tooltip. Its rows are read
+// The sidebar header, when its menu would hold a single row (Edit Sidebar beside the module
+// column), is a plain button that runs that row and names it in its tooltip. Its rows are read
 // from there rather than by clicking it, which would open the row's editor.
 async function header_rows(page) {
+  // A header drawn as a label (Sliding Sidebar), or not drawn (Module Tabs), has no menu.
+  const none = await page.evaluate(() => {
+    const header = document.querySelector(".body-sidebar .sidebar-header");
+    return (
+      !header ||
+      header.classList.contains("opendesk-header-plain") ||
+      header.classList.contains("opendesk-header-hidden")
+    );
+  });
+  if (none) return [];
   const lone = await page.evaluate(() => {
     const header = document.querySelector(".body-sidebar .sidebar-header");
     const chevron = header && header.querySelector(".drop-icon");
@@ -91,17 +107,106 @@ async function header_rows(page) {
   return rows;
 }
 
-// Whether the Module Column is on screen (not below 768px, where the header menu picks).
+// Whether the module column is on screen (not below 768px, where the header menu picks).
 const column_on = (page) =>
   page.evaluate(() => document.body.classList.contains("opendesk-column-on"));
 
+// Whether the band of module tabs is on screen (not below 768px, where the header menu picks).
+const tabs_on = (page) =>
+  page.evaluate(() => document.body.classList.contains("opendesk-tabs-on"));
+
+// Whether the open app's modules are listed somewhere of their own (the column, the band, the
+// rail or the sidebar) rather than in the header menu.
+const beside_on = (page) =>
+  page.evaluate(() =>
+    document.body.classList.contains("opendesk-modules-beside")
+  );
+
+// The pickers by the names Open Desk Settings gives them.
+const PICKER_NAMES = {
+  app_menu: "App Menu",
+  header: "Module Menu",
+  sidebar: "Sliding Sidebar",
+  column: "Three Column",
+  tabs: "Module Tabs",
+  accordion_rail: "Accordion Rail",
+  accordion_sidebar: "Accordion Sidebar",
+};
+
+// Whether the module on screen is one of `title`'s.
+const inside_app = (page, title) =>
+  page.evaluate(
+    (title) =>
+      frappe.boot.desk_apps
+        .find((a) => a.title === title)
+        .modules.some((m) => m.shell === frappe.app.sidebar.current_module),
+    title
+  );
+
+// Picks the app called `title` on the rail: its tile, or with App Menu, its row in the menu the
+// rail's mark opens.
+async function pick_app(page, title) {
+  const in_menu = await page.evaluate(
+    () => frappe.boot.opendesk_features.module_picker === "app_menu"
+  );
+  if (!in_menu) {
+    await page
+      .locator(`.dock .opendesk-rail-app[aria-label="${title}"]`)
+      .click();
+    return;
+  }
+  await page.locator(".dock .dock-logo .shell-header").click();
+  await page.waitForSelector(MENU_ROWS, { timeout: 5000 });
+  await page.getByRole("menuitem", { name: title, exact: true }).click();
+}
+
+// Picks another app with modules on the rail, then `title` again: the module it came back to,
+// which should be the one it was left in.
+async function round_trip(page, title) {
+  const other = await page.evaluate(
+    (title) =>
+      (frappe.boot.desk_apps || []).find(
+        (a) =>
+          a.title !== title &&
+          (a.modules || []).some((m) => frappe.boot.module_sidebars[m.shell])
+      )?.title,
+    title
+  );
+  if (!other) return null;
+  await pick_app(page, other);
+  await settle(page);
+  const went = await page.evaluate(
+    (other) =>
+      frappe.boot.desk_apps
+        .find((a) => a.title === other)
+        .modules.some((m) => m.shell === frappe.app.sidebar.current_module),
+    other
+  );
+  assert(went, `picking ${other} did not go into it`);
+  await pick_app(page, title);
+  await settle(page);
+  return {
+    other,
+    back: await page.evaluate(() => frappe.app.sidebar.current_module),
+    path: await page.evaluate(() => window.location.pathname),
+  };
+}
+
+// The app the band of module tabs names.
+const tabs_title = (page) =>
+  page.evaluate(() =>
+    document.querySelector(".opendesk-tabs-title").textContent.trim()
+  );
+
 // An app with something to choose -- more than one module -- and its last module's label.
+// Not the app the page is in, which a pick offers rather than goes into.
 const app_with_choice = (page) =>
   page.evaluate(() => {
+    const current = frappe.app.sidebar && frappe.app.sidebar.current_module;
     const app = (frappe.boot.desk_apps || []).find(
       (a) =>
         (a.modules || []).filter((m) => frappe.boot.module_sidebars[m.shell])
-          .length > 1
+          .length > 1 && !(a.modules || []).some((m) => m.shell === current)
     );
     if (!app) return null;
     const modules = app.modules.filter(
@@ -119,6 +224,25 @@ const app_with_choice = (page) =>
     viewport: { width: 1400, height: 900 },
   });
   const page = await context.newPage();
+  if (PICKER || APP_PICK) {
+    await page.route(/\/(desk|app)(\/|$|\?)/, async (route) => {
+      if (route.request().resourceType() !== "document")
+        return route.fallback();
+      const response = await route.fetch();
+      let body = await response.text();
+      if (PICKER)
+        body = body.replace(
+          /"module_picker":\s*"[a-z_]+"/,
+          `"module_picker": "${PICKER}"`
+        );
+      if (APP_PICK)
+        body = body.replace(
+          /"app_pick":\s*"[a-z_]+"/,
+          `"app_pick": "${APP_PICK}"`
+        );
+      await route.fulfill({ response, body });
+    });
+  }
   const page_errors = [];
   const console_errors = [];
   page.on("pageerror", (e) => page_errors.push(e.message.split("\n")[0]));
@@ -170,12 +294,22 @@ const app_with_choice = (page) =>
       const state = await page.evaluate(() => ({
         on: document.body.classList.contains("opendesk-rail-on"),
         tiles: document.querySelectorAll(".dock .opendesk-rail-app").length,
+        modules: document.querySelectorAll(".dock .opendesk-rail-module-tile")
+          .length,
+        mark: document
+          .querySelector(".dock .dock-logo .header-title")
+          ?.textContent.trim(),
         apps: (frappe.boot.desk_apps || []).length,
       }));
       assert(
         state.on,
         "body is not marked opendesk-rail-on: the rail did not install"
       );
+      // With App Menu the rail holds the open app's modules, under its mark.
+      if (features.module_picker === "app_menu") {
+        assert(state.modules > 0, "no module tiles on the rail");
+        return `${state.mark}: ${state.modules} module tiles`;
+      }
       assert(state.tiles > 0, "no app tiles on the rail");
       return `${state.tiles} tiles for ${state.apps} apps`;
     });
@@ -193,82 +327,203 @@ const app_with_choice = (page) =>
       return tools.join(", ");
     });
 
-    await check(
-      "picking an app offers its modules, and a module opens it",
-      async () => {
-        if (!features.navigation_rail)
-          return { skip: "Override Navigation Rail is off" };
-        const picker = features.module_picker || "header";
-        const app = await app_with_choice(page);
-        if (!app) return { skip: "no app with more than one module" };
-        const { title } = app;
-        await page
-          .locator(`.dock .opendesk-rail-app[aria-label="${title}"]`)
-          .click();
-        await page.waitForTimeout(800);
-        const before = page.url();
-        const landed = () =>
-          before === page.url() ? "same page" : "a module page";
+    await check("picking an app, and then a module", async () => {
+      if (!features.navigation_rail)
+        return { skip: "Override Navigation Rail is off" };
+      const picker = features.module_picker || "header";
+      const name = PICKER_NAMES[picker] || picker;
+      const app = await app_with_choice(page);
+      if (!app) return { skip: "no other app with more than one module" };
+      const { title } = app;
+      await pick_app(page, title);
+      await page.waitForTimeout(800);
 
-        if (picker === "sidebar") {
-          const rows = await page.locator(".opendesk-module-row").count();
-          assert(rows > 1, `${title}: the module list has ${rows} rows`);
-          await page.locator(".opendesk-module-row").last().click();
-          await settle(page);
-          const listed = await page.evaluate(
-            () => !!frappe.app.sidebar.opendesk_module_list
-          );
-          assert(!listed, "the module list stayed up after picking a module");
-          return `Sidebar List, ${title}: ${rows} rows, then ${landed()}`;
-        }
-
-        if (picker === "column" && (await column_on(page))) {
-          const shown = await page.evaluate(() =>
-            document.querySelector(".opendesk-column-title").textContent.trim()
-          );
-          assert(shown === title, `the column shows ${shown}, not ${title}`);
-          const rows = await page.locator(".opendesk-column-row").count();
-          assert(rows > 1, `${title}: the column has ${rows} rows`);
-          await page.locator(".opendesk-column-row").last().click();
-          await settle(page);
-          const browsing = await page.evaluate(
-            () => !!(frappe.app.sidebar.opendesk_column || {}).browsing
-          );
-          assert(!browsing, "the column kept the picked app after a module");
-          return `Module Column, ${title}: ${rows} rows, then ${landed()}`;
-        }
-
-        // The Header Menu, and the Module Column below 768px: the header's menu picks.
-        await page.waitForSelector(MENU_ROWS, { timeout: 5000 });
-        const rows = await page.$$eval(MENU_ROWS, (els) =>
-          els.map((el) => el.textContent.trim())
-        );
-        assert(
-          rows.includes(app.last),
-          `${title}: the menu has no ${app.last} (${rows.join(", ")})`
-        );
-        await page
-          .getByRole("menuitem", { name: app.last, exact: true })
-          .first()
-          .click();
+      // Open Last Module: the pick went into the app. Another of its modules, then another app,
+      // then this one again: it comes back to that module.
+      if (features.app_pick !== "offer") {
         await settle(page);
-        const open = await page.evaluate(
-          () =>
-            !!frappe.app.sidebar.opendesk_picker_app ||
-            !!document.querySelector('[role="menu"]')
+        assert(
+          await inside_app(page, title),
+          `picking ${title} did not go into it`
         );
-        assert(!open, "the module picker stayed open after picking a module");
-        return `Header Menu, ${title}: ${rows.length} rows, then ${landed()}`;
+        const left = await page.evaluate((title) => {
+          const sidebar = frappe.app.sidebar;
+          const other = frappe.boot.desk_apps
+            .find((a) => a.title === title)
+            .modules.find(
+              (m) =>
+                frappe.boot.module_sidebars[m.shell] &&
+                m.shell !== sidebar.current_module
+            );
+          sidebar.open_module(other.shell);
+          return other.shell;
+        }, title);
+        await settle(page);
+        // Open Last Sidebar Item: a row of that module too, whose page it should come back to.
+        let page_left = null;
+        if (features.app_pick === "enter_item") {
+          const row = page
+            .locator(
+              ".body-sidebar .sidebar-items .standard-sidebar-item:not(.active-sidebar) > a.item-anchor[href^='/desk']"
+            )
+            .nth(1);
+          if (await row.count()) {
+            await row.click();
+            await settle(page);
+            page_left = await page.evaluate(() => window.location.pathname);
+          }
+        }
+        const mode =
+          features.app_pick === "enter_item"
+            ? "Open Last Sidebar Item"
+            : "Open Last Module";
+        const trip = await round_trip(page, title);
+        if (!trip) return `${name}, ${mode}: went into ${title}`;
+        assert(
+          trip.back === left,
+          `${title} came back to ${trip.back}, not ${left}`
+        );
+        if (page_left)
+          assert(
+            trip.path === page_left,
+            `${title} came back to ${trip.path}, not ${page_left}`
+          );
+        return `${name}, ${mode}: ${title}, back in ${
+          page_left || left
+        } after ${trip.other}`;
       }
-    );
+
+      // Show Its Modules: the picker offers the app's modules over the page, and one opens it.
+      const before = page.url();
+      const landed = () =>
+        before === page.url() ? "same page" : "a module page";
+
+      if (picker === "sidebar") {
+        const rows = await page.locator(".opendesk-module-row").count();
+        assert(rows > 1, `${title}: the module list has ${rows} rows`);
+        await page.locator(".opendesk-module-row").last().click();
+        await settle(page);
+        const listed = await page.evaluate(
+          () => !!frappe.app.sidebar.opendesk_module_list
+        );
+        assert(!listed, "the module list stayed up after picking a module");
+        return `${name}, Show Its Modules: ${title}, ${rows} rows, then ${landed()}`;
+      }
+
+      if (picker === "column" && (await column_on(page))) {
+        const shown = await page.evaluate(() =>
+          document.querySelector(".opendesk-column-title").textContent.trim()
+        );
+        assert(shown === title, `the column shows ${shown}, not ${title}`);
+        const rows = await page.locator(".opendesk-column-row").count();
+        assert(rows > 1, `${title}: the column has ${rows} rows`);
+        await page.locator(".opendesk-column-row").last().click();
+        await settle(page);
+        const browsing = await page.evaluate(
+          () => !!(frappe.app.sidebar.opendesk_column || {}).browsing
+        );
+        assert(!browsing, "the column kept the picked app after a module");
+        return `${name}, Show Its Modules: ${title}, ${rows} rows, then ${landed()}`;
+      }
+
+      if (
+        ["app_menu", "tabs", "accordion_rail", "accordion_sidebar"].includes(
+          picker
+        ) &&
+        (await beside_on(page))
+      ) {
+        // The band, the app's tray or the sidebar's bars show the app, over the page.
+        const browsing = await page.evaluate(
+          () => (frappe.app.sidebar.opendesk_browsing || {}).app?.title
+        );
+        assert(browsing === title, `${title} is not on show (${browsing})`);
+        const rows = {
+          app_menu: ".dock .opendesk-rail-module-tile",
+          tabs: ".opendesk-tabs-row .opendesk-tab:not(.hidden)",
+          accordion_rail: `.dock .opendesk-rail-app[aria-label="${title}"] + .opendesk-rail-group:not(.opendesk-rail-group-folded) .opendesk-rail-module`,
+          accordion_sidebar:
+            ".body-sidebar .opendesk-accordion-module .item-anchor",
+        }[picker];
+        const count = await page.locator(rows).count();
+        assert(count > 1, `${title}: ${count} modules on show`);
+        await page.locator(rows).last().click();
+        await settle(page);
+        assert(
+          await inside_app(page, title),
+          `the module did not open ${title}`
+        );
+        const still = await page.evaluate(
+          () => !!frappe.app.sidebar.opendesk_browsing
+        );
+        assert(!still, `${title} stayed on show after a module`);
+        return `${name}, Show Its Modules: ${title}, ${count} modules, then ${landed()}`;
+      }
+
+      // The Module Menu, and every other picker below 768px: the header's menu picks.
+      await page.waitForSelector(MENU_ROWS, { timeout: 5000 });
+      const rows = await page.$$eval(MENU_ROWS, (els) =>
+        els.map((el) => el.textContent.trim())
+      );
+      assert(
+        rows.includes(app.last),
+        `${title}: the menu has no ${app.last} (${rows.join(", ")})`
+      );
+      await page
+        .getByRole("menuitem", { name: app.last, exact: true })
+        .first()
+        .click();
+      await settle(page);
+      const open = await page.evaluate(
+        () =>
+          !!frappe.app.sidebar.opendesk_picker_app ||
+          !!document.querySelector('[role="menu"]')
+      );
+      assert(!open, "the module picker stayed open after picking a module");
+      return `${name}, Show Its Modules: ${title}, ${
+        rows.length
+      } rows, then ${landed()}`;
+    });
 
     await check("the header menu opens", async () => {
       if (!features.navigation_rail)
         return { skip: "Override Navigation Rail is off" };
+      // Beside the band of tabs the header is not drawn when its menu would hold nothing, and
+      // Edit Sidebar is the corner's button.
+      const hidden = await page.evaluate(() =>
+        document
+          .querySelector(".body-sidebar .sidebar-header")
+          ?.classList.contains("opendesk-header-hidden")
+      );
+      if (hidden) {
+        const edit = await page
+          .locator(".body-sidebar .opendesk-edit-sidebar:not(.hidden)")
+          .count();
+        assert(edit, "no Edit Sidebar button in the sidebar's corner");
+        return "not drawn beside the band, with Edit Sidebar in the corner";
+      }
+      // The Sliding Sidebar's header is a label when its menu would hold nothing: then a click
+      // on it must open nothing, and Edit Sidebar is the corner's button.
+      const plain = await page.evaluate(() =>
+        document
+          .querySelector(".body-sidebar .sidebar-header")
+          ?.classList.contains("opendesk-header-plain")
+      );
+      if (plain) {
+        await page.locator(".body-sidebar .sidebar-header").first().click();
+        await page.waitForTimeout(400);
+        const opened = await page.locator(MENU_ROWS).count();
+        assert(!opened, "the plain header opened a menu");
+        const edit = await page
+          .locator(".body-sidebar .opendesk-edit-sidebar:not(.hidden)")
+          .count();
+        assert(edit, "no Edit Sidebar button in the sidebar's corner");
+        return "a label, with Edit Sidebar in the corner";
+      }
       const rows = await header_rows(page);
       assert(rows.length > 0, "the header menu is empty");
-      // Beside the Module Column the modules are not in it, and one row is the header itself.
-      if (!(await column_on(page)))
+      // Beside the module column, the band or an accordion the modules are not in it, and one
+      // row is the header itself.
+      if (!(await beside_on(page)))
         assert(rows.length > 1, `only ${rows.join(", ")} in the header menu`);
       return rows.length === 1
         ? `one row, on the header: ${rows[0]}`
@@ -355,10 +610,14 @@ const app_with_choice = (page) =>
       const app = await app_with_choice(page);
       if (!app) return { skip: "no app with more than one module" };
       const { title } = app;
-      await page
-        .locator(`.dock .opendesk-rail-app[aria-label="${title}"]`)
-        .click();
+      await pick_app(page, title);
       await page.waitForTimeout(800);
+      // With Open Last Module that went into the app; picked again, it offers the modules.
+      if (features.app_pick !== "offer") {
+        await settle(page);
+        await pick_app(page, title);
+        await page.waitForTimeout(800);
+      }
       if (picker === "sidebar") {
         // From the module list's header.
         await page.locator(".body-sidebar .sidebar-header").first().click();
@@ -367,6 +626,20 @@ const app_with_choice = (page) =>
         await page.evaluate(() =>
           document.querySelector(".opendesk-column-manage").click()
         );
+      } else if (picker === "tabs" && (await tabs_on(page))) {
+        // From the band's end.
+        await page.locator(".opendesk-tabs-manage").click();
+      } else if (
+        (picker === "app_menu" || picker.startsWith("accordion")) &&
+        (await beside_on(page))
+      ) {
+        // Manage Modules is in the header's menu.
+        await page.keyboard.press("Escape");
+        await page.locator(".body-sidebar .sidebar-header").first().click();
+        await page.waitForSelector(MENU_ROWS, { timeout: 5000 });
+        await page
+          .getByRole("menuitem", { name: "Manage Modules", exact: true })
+          .click();
       } else {
         // The menu's last row.
         await page.waitForSelector(MENU_ROWS, { timeout: 5000 });
@@ -420,7 +693,7 @@ const app_with_choice = (page) =>
     });
 
     await check(
-      "an Apps screen tile with a choice offers its modules",
+      "an Apps screen tile does what picking its app does",
       async () => {
         if (!features.navigation_rail)
           return { skip: "Override Navigation Rail is off" };
@@ -453,17 +726,33 @@ const app_with_choice = (page) =>
           .click();
         await settle(page, 2000);
         const picker = features.module_picker || "header";
-        if (picker === "sidebar") {
+        if (features.app_pick !== "offer") {
+          // Open Last Module: the tile went into the app, to the module last open in it.
+          assert(await inside_app(page, title), `${title}: landed elsewhere`);
+          const opened = await page.evaluate((title) => {
+            const app = frappe.boot.desk_apps.find((a) => a.title === title);
+            const last = JSON.parse(
+              localStorage.getItem("opendesk-last-modules") || "{}"
+            )[app.key];
+            return { last, now: frappe.app.sidebar.current_module };
+          }, title);
+          assert(
+            !opened.last || opened.last === opened.now,
+            `${title}: opened ${opened.now}, not ${opened.last}`
+          );
+        } else if (picker === "sidebar") {
           const listed = await page.evaluate(
             () => !!frappe.app.sidebar.opendesk_module_list
           );
           assert(listed, `${title}: landed without the module list`);
-        } else if (picker === "column" && (await column_on(page))) {
-          // It lands in the app's first module, so the column shows that app.
-          const shown = await page.evaluate(() =>
-            document.querySelector(".opendesk-column-title").textContent.trim()
-          );
-          assert(shown === title, `${title}: the column shows ${shown}`);
+        } else if (picker !== "header" && (await beside_on(page))) {
+          // It lands in the app's first module: the column, the band, the rail or the sidebar
+          // shows that app.
+          assert(await inside_app(page, title), `${title}: landed elsewhere`);
+          if (picker === "tabs") {
+            const shown = await tabs_title(page);
+            assert(shown === title, `${title}: the band shows ${shown}`);
+          }
         } else {
           const picked = await page.evaluate(() => {
             const app = frappe.app.sidebar.opendesk_picker_app;

@@ -19,9 +19,16 @@ ENABLE_NAVIGATION_RAIL = "enable_navigation_rail"
 # The rail's foot: Search, Notifications and other apps' tiles moved there from the top of the
 # sidebar (`js/rail.js`, `scss/rail.scss`). Only with the rail.
 ENABLE_RAIL_TOOLS = "enable_rail_tools"
-# Where picking an app on the rail offers its modules: "Sidebar List", "Header Menu" or "Module
-# Column" (`js/rail.js`). Told to the desk as `module_picker`: "sidebar", "header" or "column".
+# Where an app's modules are offered: "Module Menu", "App Menu", "Sliding Sidebar", "Module Tabs",
+# "Three Column", "Accordion Rail" or "Accordion Sidebar" (`js/rail.js`). Told to the desk as
+# `module_picker`: "header", "app_menu", "sidebar", "tabs", "column", "accordion_rail" or
+# "accordion_sidebar".
 MODULE_PICKER = "module_picker"
+# What picking an app on the rail does, in whichever picker: "Open Last Module" goes into it, to
+# the module last open in it; "Open Last Sidebar Item" to the sidebar item last open in it; "Show
+# Its Modules" offers them over the page you are on (`js/rail.js`). Told to the desk as `app_pick`:
+# "enter", "enter_item" or "offer".
+APP_PICK = "app_pick"
 # `apps_screen.py`, which arranges Frappe's Apps screen from the Desk Apps
 ENABLE_APPS_SCREEN = "enable_apps_screen"
 # `js/user_menu.js`, which moves the site tools and Help into the desk's user menu
@@ -87,6 +94,7 @@ def extend_bootinfo(bootinfo: "frappe._dict") -> None:
 		features = {key: feature_enabled(field) for key, field in DESK_FEATURES.items()}
 		features["apps_screen"] = apps_screen.enabled()
 		features["module_picker"] = module_picker()
+		features["app_pick"] = app_pick()
 	except Exception:
 		log_boot_failure("Open Desk settings: kept Frappe's desk")
 		features = {}
@@ -115,7 +123,23 @@ def log_boot_failure(title: str) -> None:
 
 
 def module_picker() -> str:
-	"""Where the rail offers an app's modules: "sidebar", "column", or else "header", the default."""
+	"""Where an app's modules are offered: "app_menu", "sidebar", "column", "tabs", "accordion_rail",
+	"accordion_sidebar", or else "header", the Module Menu and the default."""
 	doc = _settings()
 	choice = doc.get(MODULE_PICKER) if doc else None
-	return {"Sidebar List": "sidebar", "Module Column": "column"}.get(choice, "header")
+	return {
+		"App Menu": "app_menu",
+		"Sliding Sidebar": "sidebar",
+		"Three Column": "column",
+		"Module Tabs": "tabs",
+		"Accordion Rail": "accordion_rail",
+		"Accordion Sidebar": "accordion_sidebar",
+	}.get(choice, "header")
+
+
+def app_pick() -> str:
+	"""What picking an app does: "offer" its modules, "enter_item" it at its last sidebar item, or
+	else "enter" it at its last module, the default."""
+	doc = _settings()
+	choice = doc.get(APP_PICK) if doc else None
+	return {"Show Its Modules": "offer", "Open Last Sidebar Item": "enter_item"}.get(choice, "enter")

@@ -47,9 +47,15 @@ SEAMS = {
 			"app_landing_route",
 			"refresh_dock",
 			"create_user_menu",
-			# The Module Column redraws with the sidebar's visibility.
+			# The module column redraws with the sidebar's visibility.
 			"apply_page_visibility",
 			"toggle",
+			# Accordion Sidebar puts the rows it draws under the open module's heading.
+			"make_sidebar",
+			# Open Last Sidebar Item opens the module, then routes to the row's page.
+			"select_shell",
+			# And notes the row Frappe lit.
+			"find_active_item",
 		],
 		"properties": [
 			"$items_container",
@@ -58,6 +64,7 @@ SEAMS = {
 			"sidebar_expanded",
 			"sidebar_header",
 			"dock",
+			"active_item",
 		],
 		"strings": [
 			"workspace-selector",
@@ -101,11 +108,20 @@ SEAMS = {
 			"navbar_items",
 			"get_help_siblings",
 			"refresh",
-			# The Header Menu opens the header's own menu.
+			# The Module Menu opens the header's own menu.
 			"setup_menu",
 		],
 		"properties": ["wrapper", "$header_title", "$header_logo", "$drop_icon", "sidebar", "menu"],
-		"strings": ["frappe.ui.SidebarHeader =", "switch-module", "switch-app", "all-apps"],
+		"strings": [
+			"frappe.ui.SidebarHeader =",
+			"switch-module",
+			"switch-app",
+			"all-apps",
+			# The Sliding Sidebar's corner button does what Frappe's Edit Sidebar row does.
+			"edit-sidebar",
+			"arrangement_editor.bundle.js",
+			"new frappe.ui.SidebarManager()",
+		],
 	},
 	("ui", "sidebar", "sidebar_header.html"): {"strings": ["title-container"]},
 	("ui", "sidebar", "sidebar_item.js"): {
@@ -164,7 +180,7 @@ SEAMS = {
 		],
 		"strings": ["frappe.ui.ArrangementEditor ="],
 	},
-	# The Header Menu opens and closes the header's menu, and chains onto its `opts.on_close`.
+	# The Module Menu opens and closes the header's menu, and chains onto its `opts.on_close`.
 	("ui", "components", "dropdown.js"): {
 		"methods": ["open", "close"],
 		"properties": ["opts"],
