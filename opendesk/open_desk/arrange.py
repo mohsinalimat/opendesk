@@ -30,6 +30,7 @@ is made only for an app that needs one to hold a position or to be hidden. A rec
 an editor made that no longer holds anything (`_is_placeholder`) is deleted again.
 """
 
+import hashlib
 import json
 
 import frappe
@@ -45,6 +46,40 @@ def _check():
 	"""Both editors write Desk App records, so both need the right to."""
 	frappe.has_permission(APP, "write", throw=True)
 	frappe.has_permission(APP, "create", throw=True)
+
+
+def records_stamp(for_update: bool = False) -> str:
+	"""Where the Desk Apps stand: a fingerprint of every record's name and when it last changed.
+
+	Each editor is handed one when it opens and sends it back with its save, which is refused if
+	another save came in between (`_check_stamp`). A record saved -- its modules too, which are
+	saved with it -- has a new `modified`; one made or deleted changes the names.
+	"""
+	table = frappe.qb.DocType(APP)
+	query = frappe.qb.from_(table).select(table.name, table.modified).orderby(table.name)
+	if for_update:
+		query = query.for_update()
+	records = [(name, str(modified)) for name, modified in query.run()]
+	return hashlib.sha1(json.dumps(records).encode()).hexdigest()[:16]
+
+
+def _check_stamp(seen: str | None) -> None:
+	"""Refuse a save over Desk Apps someone else has saved since this editor read them.
+
+	Without the check, the later of two editors open at once would write back every app's order
+	and settings as it first read them, undoing the earlier save. The records are locked while
+	they are read, so of two saves at once the second waits for the first and then sees it. A
+	save that brings no stamp (a desk loaded before this check existed) is let through.
+	"""
+	if seen and seen != records_stamp(for_update=True):
+		frappe.throw(
+			_(
+				"Someone else changed the desk apps since you opened this. Close it and open it "
+				"again to see their changes."
+			),
+			frappe.TimestampMismatchError,
+			title=_("Changed Meanwhile"),
+		)
 
 
 def _rail(module_sidebars: dict | None = None, app_data: list[dict] | None = None) -> list[dict]:
@@ -75,8 +110,8 @@ def _parse(items) -> list[dict]:
 
 
 @frappe.whitelist()
-def get_rail() -> list[dict]:
-	"""The apps, in rail order, as the rail editor lists them.
+def get_rail() -> dict:
+	"""The apps, in rail order, as the rail editor lists them, and the `stamp` its save brings back.
 
 	Each with its Apps Screen setting and, for every setting it could have, the tiles
 	that setting draws (`screen`), by the same rule the Apps screen is arranged by
@@ -90,7 +125,7 @@ def get_rail() -> list[dict]:
 	asked = {entry["app_name"] for entry in app_data if entry.get("on_apps_screen")}
 	routes = {entry["app_name"]: entry.get("app_route") for entry in app_data}
 	style = get_icon_style()
-	return [
+	apps = [
 		{
 			"key": app["key"],
 			"title": app["title"],
@@ -117,6 +152,7 @@ def get_rail() -> list[dict]:
 		}
 		for app in _rail(module_sidebars, app_data)
 	]
+	return {"apps": apps, "stamp": records_stamp()}
 
 
 def _shown_preview(app: dict, asked: set, routes: dict, module_sidebars: dict, style: str | None) -> dict:
@@ -154,7 +190,7 @@ def _preview_tiles(app: dict, tiles: list[tuple], module_sidebars: dict, style: 
 
 
 @frappe.whitelist(methods=["POST"])
-def save_rail(items: str | list) -> dict:
+def save_rail(items: str | list, stamp: str | None = None) -> dict:
 	"""Store the rail's order, which apps are off it, and how each shows on the Apps screen.
 
 	`items` is every app, in order, each with `hidden` and `apps_screen`.
@@ -164,8 +200,11 @@ def save_rail(items: str | list) -> dict:
 	gave it any, are the rows Manage Modules drafted for it, stored as that editor's own
 	save would (`_store_app_modules`), new modules included. Their keys come back under
 	`created`.
+
+	`stamp` is what `get_rail` handed the editor: refused if the records have moved on since.
 	"""
 	_check()
+	_check_stamp(stamp)
 	items = _parse(items)
 	from frappe.boot import get_app_data, get_module_sidebars
 
@@ -236,7 +275,7 @@ def _store_order(
 
 	by_key = {app["key"]: app for app in rail}
 	listed = {*nav.listed_apps(), nav.OTHER}
-	defaults = [f"app:{name}" for name in [*frappe.get_installed_apps(), nav.OTHER]]
+	defaults = [f"app:{name}" for name in [*nav.active_apps(), nav.OTHER]]
 	anchors = positions(keys, by_key, hidden, listed, defaults)
 	meta = nav.apps_from_app_data(app_data)[0]
 
@@ -459,11 +498,11 @@ def get_app_modules(key: str) -> dict:
 				}
 			)
 
-	return {"title": app["title"], "installed_app": target, "rows": rows}
+	return {"title": app["title"], "installed_app": target, "rows": rows, "stamp": records_stamp()}
 
 
 @frappe.whitelist(methods=["POST"])
-def save_app_modules(key: str, items: str | list) -> dict:
+def save_app_modules(key: str, items: str | list, stamp: str | None = None) -> dict:
 	"""Store one app's module list. `items` is every row, in order, each marked if taken off.
 
 	What the editor was not shown is kept: a row naming a module the person editing cannot
@@ -475,8 +514,11 @@ def save_app_modules(key: str, items: str | list) -> dict:
 	it off the rail. Putting such a module back lists it. Other has nowhere further to send a module, so its
 	list is only ever ordered and labelled: nothing is taken off it. A module that came
 	from another app is simply released, back to that app, without changing the mode.
+
+	`stamp` is what `get_app_modules` handed the editor: refused if the records have moved on.
 	"""
 	_check()
+	_check_stamp(stamp)
 	from frappe.boot import get_app_data
 
 	app_data = get_app_data()
@@ -557,6 +599,7 @@ def _store_app_modules(
 	rows = _keep_unseen(rows, old_rows, visible)
 
 	if target:
+		taken_off = taken_off or _leaves_out_unseen(doc.module_mode, target, rows, visible)
 		doc.module_mode = nav.REPLACE if taken_off else nav.ADD
 	doc.set("modules", rows)
 	doc.save()
@@ -564,6 +607,24 @@ def _store_app_modules(
 	if store_order:
 		_store_order(_rail(module_sidebars, app_data), order, hidden_apps, app_data=app_data)
 	return module_sidebars
+
+
+def _leaves_out_unseen(mode: str | None, target: str, rows: list[dict], visible: set[str]) -> bool:
+	"""Whether a Replace record leaves out one of its app's own modules the editor did not show.
+
+	The editor lists only what the person editing can open, so it cannot say whether one of the
+	others was taken off. Replace sends such a module to Other now; a save that never showed it
+	must not bring it back (which switching to Add would, for everyone).
+	"""
+	if mode != nav.REPLACE or target == nav.OTHER:
+		return False
+	hosts = nav.app_hosts()
+	seen = {frappe.scrub(module) for module in visible}
+	seen |= {frappe.scrub(row["module"]) for row in rows if row.get("module")}
+	return any(
+		hosts.get(app, app) == target and module not in seen
+		for module, app in nav._site_inputs()["module_apps"].items()
+	)
 
 
 def _make_new_modules(items: list[dict]) -> list[str]:
@@ -596,7 +657,7 @@ def _make_new_modules(items: list[dict]) -> list[str]:
 def _owner_of(module_sidebars: dict):
 	"""A function from a module to the installed app it belongs to by default, or Other."""
 	module_apps = nav._site_inputs()["module_apps"]
-	installed = set(frappe.get_installed_apps())
+	installed = set(nav.active_apps())
 	hosts = nav.app_hosts()
 	app_by_module = {}
 	for shell, sidebar in module_sidebars.items():
@@ -668,4 +729,6 @@ def payload(module_sidebars: dict | None = None, app_data: list[dict] | None = N
 		"app_data": app_data,
 		"module_sidebars": module_sidebars,
 		"workspaces": get_workspaces(),
+		# Where the records stand after this save, for an editor still open over them.
+		"stamp": records_stamp(),
 	}

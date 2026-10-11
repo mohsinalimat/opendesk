@@ -115,6 +115,67 @@ class TestEditorEndpoints(TestCase):
 		self.assertFalse(frappe.db.exists(self.nav.APP, hidden["record"]), "the placeholder was kept")
 		self.assertFalse(self.created())
 
+	def test_a_save_over_a_newer_one_is_refused(self):
+		opened = self.arrange.get_rail()
+		self.assertEqual([a["key"] for a in opened["apps"]], [a["key"] for a in self.rail()])
+		app = self.installed(self.rail())
+		saved = self.arrange.save_rail(
+			json.dumps(self.items(self.rail(), hidden={app["key"]})), stamp=opened["stamp"]
+		)
+		self.assertNotEqual(saved["stamp"], opened["stamp"], "the save left the stamp as it was")
+		self.assertEqual(saved["stamp"], self.arrange.records_stamp())
+
+		# A second editor, opened before that save: refused, for Manage Modules as for the rail.
+		with self.assertRaises(frappe.TimestampMismatchError):
+			self.arrange.save_rail(json.dumps(self.items(self.rail())), stamp=opened["stamp"])
+		with self.assertRaises(frappe.TimestampMismatchError):
+			self.arrange.save_app_modules(app["key"], "[]", stamp=opened["stamp"])
+
+		# The stamp the save handed back is current: the editor still open may save over it.
+		self.arrange.save_rail(json.dumps(self.items(self.rail(), shown={app["key"]})), stamp=saved["stamp"])
+
+	def test_an_uninstall_that_empties_a_replace_record_turns_it_to_add(self):
+		from unittest.mock import patch
+
+		from opendesk.open_desk.doctype.desk_app import desk_app
+
+		taken = set(
+			frappe.get_all(
+				self.nav.APP_MODULE,
+				filters={"parenttype": self.nav.APP},
+				pluck="module",
+				parent_doctype=self.nav.APP,
+			)
+		)
+		module = next((m for m in frappe.get_all("Module Def", pluck="name") if m not in taken), None)
+		if not module:
+			self.skipTest(f"every module on {SITE} is listed by a Desk App")
+
+		def record(title, modules):
+			return frappe.get_doc(
+				{
+					"doctype": self.nav.APP,
+					"title": title,
+					"enabled": 0,
+					"module_mode": self.nav.REPLACE,
+					"modules": [{"type": self.nav.MODULE, "module": m} for m in modules],
+				}
+			).insert()
+
+		emptied = record(TITLE, [module])
+		chosen = record(f"{TITLE} 2", [])
+
+		desk_app.before_app_uninstall("some_app")
+		# What Frappe's uninstall does to a row linking to one of the app's modules.
+		frappe.delete_doc(self.nav.APP_MODULE, emptied.modules[0].name, ignore_on_trash=True, force=True)
+		with patch.object(desk_app.frappe.db, "commit") as commit:
+			desk_app.after_app_uninstall("some_app")
+		commit.assert_called_once()
+
+		self.assertEqual(frappe.db.get_value(self.nav.APP, emptied.name, "module_mode"), self.nav.ADD)
+		# One that listed nothing before was left that way on purpose.
+		self.assertEqual(frappe.db.get_value(self.nav.APP, chosen.name, "module_mode"), self.nav.REPLACE)
+
 	def test_moving_one_app_anchors_only_it(self):
 		rail = self.rail()
 		movable = [k for k in self.visible(rail) if k != f"app:{self.nav.OTHER}"]

@@ -1,8 +1,9 @@
 [project]
 name = "opendesk"
 authors = [
-    { name = "Peter", email = "pgraif@gmail.com"}
+    { name = "Peter", email = "peter@theopen.institute"}
 ]
+license = { file = "license.txt" }
 description = "An app rail and other desk navigation extensions for Frappe"
 requires-python = ">=3.14"
 readme = "README.md"

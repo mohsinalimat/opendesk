@@ -38,6 +38,10 @@ frappe.provide("opendesk.boot_arrangement");
 	let rail = null;
 	// Frappe's own answer for each module entry, so placing again, or giving up, starts from it.
 	const origins = new WeakMap();
+	// And for each `app_data` entry the rail retitled, and the entries it added: what `release`
+	// puts back and takes out, so Frappe's header names Frappe's apps again.
+	const retitled = new WeakMap();
+	const added_entries = new WeakSet();
 
 	function place_modules(module_sidebars) {
 		if (!module_sidebars) return;
@@ -61,6 +65,12 @@ frappe.provide("opendesk.boot_arrangement");
 			const entry = known.get(app.app_name);
 			if (entry) {
 				if (app.configured) {
+					if (!retitled.has(entry)) {
+						retitled.set(entry, {
+							app_title: entry.app_title,
+							app_logo_url: entry.app_logo_url,
+						});
+					}
 					entry.app_title = app.title;
 					if (app.logo) entry.app_logo_url = app.logo;
 				}
@@ -77,6 +87,7 @@ frappe.provide("opendesk.boot_arrangement");
 				dock: [],
 			};
 			app_data.push(added);
+			added_entries.add(added);
 			known.set(app.app_name, added);
 		});
 	}
@@ -147,11 +158,20 @@ frappe.provide("opendesk.boot_arrangement");
 			place_modules(boot.module_sidebars);
 			add_rail_entries(boot.app_data);
 		},
-		// Back to Frappe's placement, and stop placing.
+		// Back to Frappe's placement, titles and logos, and stop placing. The Apps screen's own
+		// arrangement, a setting of its own, stays.
 		release() {
 			rail = null;
 			Object.values(boot.module_sidebars || {}).forEach((sidebar) => {
 				if (sidebar && origins.has(sidebar)) sidebar.app = origins.get(sidebar);
+			});
+			const app_data = boot.app_data;
+			if (!Array.isArray(app_data)) return;
+			for (let i = app_data.length - 1; i >= 0; i--) {
+				if (added_entries.has(app_data[i])) app_data.splice(i, 1);
+			}
+			app_data.forEach((entry) => {
+				if (retitled.has(entry)) Object.assign(entry, retitled.get(entry));
 			});
 		},
 		// An editor's save: the server's freshly arranged `app_data` is the arrangement from now on.

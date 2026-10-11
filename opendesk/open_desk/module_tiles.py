@@ -57,7 +57,8 @@ def tile(icon: str, app: str | None = None, style: str | None = None) -> None:
 	"""
 	svg = draw(icon, app or None, style or None)
 	if not svg:
-		raise frappe.DoesNotExistError(_("No icon called {0}.").format(icon))
+		# Not named back: `icon` is whatever the request said, and is only checked inside `draw`.
+		raise frappe.DoesNotExistError(_("No such icon."))
 	frappe.response.update(
 		type="download",
 		filename=f"{icon}.svg",

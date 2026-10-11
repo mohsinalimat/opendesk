@@ -200,20 +200,29 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	// Replace `proto[name]` with `impl`, which is handed a function calling Frappe's original with
 	// the same arguments. If `impl` throws, the rail gives up and the original answers -- once:
-	// not again if `impl` had already called it.
+	// not again if `impl` had already called it. An error thrown by the original itself is Frappe's
+	// (a Navbar Settings row whose condition throws, say): it goes on to Frappe's caller as it would
+	// without the rail, and the rail stays on.
 	function patch(proto, name, impl) {
 		const original = proto[name];
 		proto[name] = function (...args) {
 			let called = false;
 			let result;
+			let frappe_error;
 			const call_original = () => {
 				called = true;
-				return (result = original.apply(this, args));
+				try {
+					return (result = original.apply(this, args));
+				} catch (e) {
+					frappe_error = e;
+					throw e;
+				}
 			};
-			if (broken) return call_original();
+			if (broken) return original.apply(this, args);
 			try {
 				return impl.call(this, call_original, args);
 			} catch (e) {
+				if (called && e === frappe_error) throw e;
 				give_up(e);
 				return called ? result : original.apply(this, args);
 			}
@@ -229,6 +238,17 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			"opendesk: the navigation rail met a change in Frappe and has switched itself off",
 			error
 		);
+		// And to the site's Error Log, where it is seen: the console is this person's alone.
+		try {
+			frappe
+				.xcall("opendesk.open_desk.settings.report_rail_failure", {
+					error: String((error && error.stack) || error),
+					route: frappe.get_route_str ? frappe.get_route_str() : "",
+				})
+				.catch(() => {});
+		} catch (e) {
+			// Reporting is a courtesy; the desk is Frappe's either way.
+		}
 		$("body").removeClass(
 			"opendesk-rail-on opendesk-rail-tools-on opendesk-tabs-on opendesk-modules-beside"
 		);
@@ -245,6 +265,8 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			"opendesk-header-plain opendesk-header-hidden"
 		);
 		$(window).off(".opendesk-beside");
+		$(document).off("page-change.opendesk");
+		after_page.length = 0;
 		$(document).off(".opendesk-browse");
 		opendesk.boot_arrangement.release();
 		setTimeout(() => {
@@ -304,12 +326,17 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		};
 	}
 
+	// An app's frontend, outside the desk: a page load of its own.
+	function visit_frontend(app) {
+		window.location.href = app.frontend.url;
+	}
+
 	// Frappe's way into a rail app, for a click the rail could not handle: its first module, else
 	// its frontend.
 	function frappe_open_app(sidebar, app) {
 		const [first] = modules_of(app);
 		if (first) sidebar.open_module(first.shell);
-		else if (app.frontend) window.location.href = app.frontend.url;
+		else if (app.frontend) visit_frontend(app);
 	}
 
 	// The rail app holding a shell, by the placement the server wrote into the boot.
@@ -356,8 +383,15 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// Last Module, picking an app other than the one you are in goes into it instead, to the module
 	// last open in it, and the picker offers the rest from there; picking the app you are in still
 	// offers its modules.
+	//
+	// A page that hides the sidebar (a page's `hide_sidebar`) can still show the rail, but neither
+	// the sidebar nor its header can offer the modules there. Unless the rail carries them itself
+	// (App Menu, Accordion Rail), the app is gone into instead, as Open Last Module would.
 	function open_app(sidebar, app) {
-		if (enters_app && app !== rail_app_of(sidebar.current_module) && modules_of(app).length) {
+		const can_offer =
+			sidebar_shown(sidebar) || app_menu_shown(sidebar) || rail_accordion_shown(sidebar);
+		const elsewhere = app !== rail_app_of(sidebar.current_module);
+		if (modules_of(app).length && (!can_offer || (enters_app && elsewhere))) {
 			enter_app(sidebar, app);
 			return;
 		}
@@ -369,7 +403,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		if (only) {
 			open_module(sidebar, only.shell, "fade");
 		} else if (app.frontend) {
-			window.location.href = app.frontend.url;
+			visit_frontend(app);
 		}
 	}
 
@@ -431,10 +465,48 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// on a page that loads after the route has changed, or the window crossing 768px -- the header
 	// changes with them, so it is redrawn here. (`opendesk-modules-beside` on the body is for the
 	// smoke test, `tests/smoke`, which reads it.)
+	// Frappe re-resolves the sidebar as soon as the route changes, but shows the page -- and the
+	// sidebar that page allows or hides -- only once the page is loaded (`container.change_to`,
+	// which notes the route on the page and then calls `apply_page_visibility`). For a page not
+	// loaded yet that is later, and until then the sidebar on screen is the last page's. What reads
+	// the sidebar as the page leaves it (which module it was left on, where to offer an app's
+	// modules) waits for the page, and is dropped if the route has moved on by then.
+	const after_page = [];
+	// The route of the page last put on screen: Frappe announces each (`page-change`) just before
+	// it shows or hides the sidebar for it. Unknown until the first, when nothing waits.
+	let shown_route = null;
+	$(document).on("page-change.opendesk", () => {
+		shown_route = frappe.get_route_str();
+	});
+
+	function page_settled() {
+		return shown_route === null || shown_route === frappe.get_route_str();
+	}
+
+	function once_page_shows(run) {
+		if (page_settled()) {
+			run();
+			return;
+		}
+		after_page.push({ route: frappe.get_route_str(), run });
+	}
+
+	function run_after_page() {
+		if (!after_page.length || !page_settled()) return;
+		const route = frappe.get_route_str();
+		after_page.splice(0).forEach((pending) => {
+			if (pending.route === route) pending.run();
+		});
+	}
+
+	// Counted, so a caller can tell whether Frappe's own redraw already drew it.
+	let beside_draws = 0;
+
 	function draw_beside(sidebar) {
+		beside_draws++;
 		if (column_mode) draw_column(sidebar);
 		else if (tabs_mode) draw_tabs(sidebar);
-		note_module(sidebar);
+		once_page_shows(() => note_module(sidebar));
 		const beside = modules_beside(sidebar);
 		$("body").toggleClass("opendesk-modules-beside", beside);
 		const moved = sidebar.opendesk_beside !== beside;
@@ -515,7 +587,12 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			"keydown.opendesk-browse",
 			guarded((event) => {
 				const current = sidebar();
-				if (event.key === "Escape" && current && current.opendesk_browsing) {
+				if (
+					event.key === "Escape" &&
+					!escape_taken(event) &&
+					current &&
+					current.opendesk_browsing
+				) {
 					leave_browsing(current);
 				}
 			})
@@ -524,8 +601,12 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	// What decides whether the column, the band or the rail shows: the sidebar, and the rail.
 	function shown_state(sidebar) {
-		const shown = !!sidebar.wrapper && sidebar.wrapper.css("display") !== "none";
-		return `${shown}|${!!(sidebar.dock && sidebar.dock.enabled)}`;
+		return `${sidebar_shown(sidebar)}|${!!(sidebar.dock && sidebar.dock.enabled)}`;
+	}
+
+	// Whether the page shows the sidebar: Frappe hides its wrapper on pages that ask it to.
+	function sidebar_shown(sidebar) {
+		return !!sidebar.wrapper && sidebar.wrapper.css("display") !== "none";
 	}
 
 	// Whether the rail can be reached: drawn beside the page, or floating where the pointer brings
@@ -652,7 +733,9 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		$(document).on(
 			"keydown.opendesk-column",
 			guarded((event) => {
-				if (event.key === "Escape" && column.peek) leave_column(sidebar);
+				if (event.key === "Escape" && !escape_taken(event) && column.peek) {
+					leave_column(sidebar);
+				}
 			})
 		);
 		return column;
@@ -727,9 +810,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			$rows.append($row);
 		};
 		if (app && app.frontend) {
-			row(app.frontend.label, "external-link", false, () => {
-				window.location.href = app.frontend.url;
-			});
+			row(app.frontend.label, "external-link", false, () => visit_frontend(app));
 			$rows.append('<div class="opendesk-column-space"></div>');
 		}
 		(app ? module_layout(app) : []).forEach(({ entry, label, icon, category, spacer }) => {
@@ -837,6 +918,14 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	// Both read once and kept, as they are asked on every redraw; dropped when another tab of
 	// this site writes them, so its picks are not written over.
+	// An Escape a dialog or a menu answers is theirs: it closes that, and leaves what is behind.
+	function escape_taken(event) {
+		return (
+			event.defaultPrevented ||
+			!!$(event.target).closest(".modal, .es-menu, .dropdown-menu").length
+		);
+	}
+
 	let last_modules_read = null;
 	let last_items_read = null;
 	window.addEventListener("storage", (event) => {
@@ -846,7 +935,9 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	function stored_map(key) {
 		try {
-			return JSON.parse(localStorage.getItem(key) || "{}") || {};
+			const map = JSON.parse(localStorage.getItem(key) || "{}");
+			// Anything else in the key (a list, a string) is not this map, and is written over.
+			return map && typeof map === "object" && !Array.isArray(map) ? map : {};
 		} catch (e) {
 			return {};
 		}
@@ -1089,9 +1180,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		};
 		const rule = () => dock.$items.append('<div class="opendesk-rail-rule"></div>');
 		if (app.frontend) {
-			tile(app.frontend.label, "external-link", false, () => {
-				window.location.href = app.frontend.url;
-			});
+			tile(app.frontend.label, "external-link", false, () => visit_frontend(app));
 			rule();
 		}
 		module_layout(app).forEach(({ shell, label, icon, starts_group }) => {
@@ -1241,9 +1330,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			$inner.append($tile);
 		};
 		if (app.frontend) {
-			tile(app.frontend.label, "external-link", false, () => {
-				window.location.href = app.frontend.url;
-			});
+			tile(app.frontend.label, "external-link", false, () => visit_frontend(app));
 			$inner.append('<div class="opendesk-rail-group-rule"></div>');
 		}
 		module_layout(app).forEach(({ shell, label, icon, starts_group }) => {
@@ -1368,24 +1455,30 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		let $leaving_heading = null;
 
 		if (app.frontend) {
-			accordion_heading($container, app.frontend.label, "external-link", null, () => {
-				window.location.href = app.frontend.url;
-			});
+			const visit = () => visit_frontend(app);
+			accordion_heading($container, app.frontend.label, "external-link", null, visit, visit);
 		}
 		module_layout(app).forEach(({ entry, label, icon, starts_group }) => {
 			const open = entry.shell === sidebar.current_module;
-			const $heading = accordion_heading($container, label, icon, open, () => {
-				if (entry.shell !== sidebar.current_module) {
-					open_module(sidebar, entry.shell);
-					return;
-				}
-				const folded = !$content.hasClass(ACCORDION_FOLDED);
-				$content.toggleClass(ACCORDION_FOLDED, folded);
-				$heading
-					.toggleClass("opendesk-accordion-open", !folded)
-					.find(".item-anchor")
-					.attr("aria-expanded", folded ? "false" : "true");
-			});
+			const $heading = accordion_heading(
+				$container,
+				label,
+				icon,
+				open,
+				() => {
+					if (entry.shell !== sidebar.current_module) {
+						open_module(sidebar, entry.shell);
+						return;
+					}
+					const folded = !$content.hasClass(ACCORDION_FOLDED);
+					$content.toggleClass(ACCORDION_FOLDED, folded);
+					$heading
+						.toggleClass("opendesk-accordion-open", !folded)
+						.find(".item-anchor")
+						.attr("aria-expanded", folded ? "false" : "true");
+				},
+				() => sidebar.open_module(entry.shell)
+			);
 			$heading.toggleClass("opendesk-accordion-group", starts_group);
 			if (moving && entry.shell === leaving.shell) $leaving_heading = $heading;
 			if (!open) return;
@@ -1409,8 +1502,9 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	}
 
 	// A module's bar: its icon and name, and -- `open` being true or false, not null -- the
-	// chevron that turns over while its rows are open. A click or Enter or Space runs `on_click`.
-	function accordion_heading($container, label, icon, open, on_click) {
+	// chevron that turns over while its rows are open. A click or Enter or Space runs `on_click`,
+	// or `fallback` once the rail has given up (`guarded`).
+	function accordion_heading($container, label, icon, open, on_click, fallback) {
 		const $heading = $(`<div class="sidebar-item-container opendesk-accordion-module">
 			<div class="standard-sidebar-item">
 				<a class="item-anchor" role="button" tabindex="0">
@@ -1426,14 +1520,12 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			$anchor.attr("aria-expanded", open ? "true" : "false");
 			$heading.find(".sidebar-item-control").html(frappe.utils.icon("chevron-down", "xs"));
 		}
-		$anchor.on("click", guarded(on_click)).on(
-			"keydown",
-			guarded((event) => {
-				if (event.key !== "Enter" && event.key !== " ") return;
-				event.preventDefault();
-				on_click();
-			})
-		);
+		const click = guarded(on_click, fallback);
+		$anchor.on("click", click).on("keydown", (event) => {
+			if (event.key !== "Enter" && event.key !== " ") return;
+			event.preventDefault();
+			click();
+		});
 		$container.append($heading);
 		return $heading;
 	}
@@ -1447,13 +1539,17 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		open_sidebar(sidebar);
 		sidebar.empty();
 		if (app.frontend) {
-			accordion_heading($container, app.frontend.label, "external-link", null, () => {
-				window.location.href = app.frontend.url;
-			});
+			const visit = () => visit_frontend(app);
+			accordion_heading($container, app.frontend.label, "external-link", null, visit, visit);
 		}
 		module_layout(app).forEach(({ shell, label, icon, starts_group }) => {
-			accordion_heading($container, label, icon, false, () =>
-				open_module(sidebar, shell)
+			accordion_heading(
+				$container,
+				label,
+				icon,
+				false,
+				() => open_module(sidebar, shell),
+				() => sidebar.open_module(shell)
 			).toggleClass("opendesk-accordion-group", starts_group);
 		});
 		animate_rows(sidebar, "fade");
@@ -1617,7 +1713,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			add_row({
 				label: frappe.utils.escape_html(app.frontend.label),
 				icon: "external-link",
-				onClick: () => (window.location.href = app.frontend.url),
+				onClick: () => visit_frontend(app),
 			});
 			sidebar.add_item($container, { type: "Spacer", label: "" });
 		}
@@ -1641,10 +1737,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			add_row({
 				label: frappe.utils.escape_html(label),
 				icon,
-				onClick: guarded(
-					() => open_module(sidebar, entry.shell, "forward"),
-					() => sidebar.open_module(entry.shell)
-				),
+				onClick: module_opener(sidebar, entry.shell, "forward"),
 			});
 			// The module the page is in, lit the way Frappe lights the current row.
 			if (entry.shell === sidebar.current_module) {
@@ -1760,6 +1853,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			);
 		}
 		opendesk.rail.tools.forEach((spec) => {
+			let $button = null;
 			try {
 				if (!spec || !spec.name || (spec.condition && !spec.condition())) return;
 				const badge = spec.badge_class
@@ -1767,7 +1861,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 							spec.badge_class
 					  )} opendesk-rail-count hidden" aria-live="polite"></span>`
 					: "";
-				const $button = tool(
+				$button = tool(
 					frappe.utils.escape_html(spec.name),
 					spec.label || spec.name,
 					spec.icon || "square",
@@ -1786,6 +1880,8 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				}
 				if (spec.on_draw) spec.on_draw($button);
 			} catch (e) {
+				// Left out even when it was already drawn, before its `on_draw` threw.
+				if ($button) $button.remove();
 				console.error(`opendesk: left the rail tile ${spec && spec.name} out`, e);
 			}
 		});
@@ -1805,7 +1901,10 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// Frappe's own row again once it has given up.
 	const manage_rail = {
 		name: "opendesk-manage-desk-apps",
-		label: __("Manage Desk Apps"),
+		// Read when the menu is drawn: Frappe may load the translations after this script runs.
+		get label() {
+			return __("Manage Desk Apps");
+		},
 		icon: "monitor",
 		condition: () => !broken && can_manage(),
 		onclick: () => opendesk.rail.manage_rail(),
@@ -1896,7 +1995,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		this.$header_logo.html(
 			logo
 				? frappe.utils.app_logo({ app_title: title, app_logo_url: logo }).icon
-				: frappe.utils.icon("home", "md")
+				: frappe.utils.icon("house", "md")
 		);
 		this.$header_title.text(title);
 		this.$header.attr("aria-label", __("All apps"));
@@ -1936,7 +2035,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		rail_apps.forEach((app) => {
 			if (!choice_count(app)) return;
 			const is_active = !!current && app.key === current.key;
-			const label = app.title;
+			const label = __(app.title);
 			const $item = $(`<button
 				class="dock-item opendesk-rail-app ${is_active ? "active" : ""}"
 				data-app-key="${frappe.utils.escape_html(app.key)}"
@@ -1999,10 +2098,15 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			if (typeof Sidebar.prototype[method] !== "function") return;
 			patch(Sidebar.prototype, method, function (original) {
 				const before = shown_state(this);
+				const draws = beside_draws;
 				const result = original();
-				// Frappe's own `refresh_dock` redraws through `render_entries` when the rail
-				// changed; drawn again here only when what shows the column or band did.
-				if (shown_state(this) !== before) draw_beside(this);
+				// Frappe shows or hides the sidebar, then refreshes the Dock, which redraws
+				// through `render_entries` when the rail changed -- by then with the sidebar as
+				// it now is. Drawn here only when what shows the column or band changed and that
+				// redraw did not happen.
+				if (shown_state(this) !== before && beside_draws === draws) draw_beside(this);
+				// The page is on screen now, with its sidebar or without.
+				if (method === "apply_page_visibility") run_after_page();
 				return result;
 			});
 		});
@@ -2055,13 +2159,16 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		if (browsing && frappe.get_route_str() !== browsing.route) leave_browsing(this);
 		// Frappe has lit the row for the page: noted as the one its app was left on -- once the
 		// module's own rows are back, since over a module list or another app's modules no row is.
-		if (!this.opendesk_module_list && !this.opendesk_browsing) note_item(this);
-		// A tile on the Apps screen was picked: its app's module list, now there is a sidebar.
+		if (!this.opendesk_module_list && !this.opendesk_browsing) {
+			once_page_shows(() => note_item(this));
+		}
+		// A tile on the Apps screen was picked: its app's module list, once the page it opens is
+		// on screen with its sidebar.
 		if (from_apps_screen) {
 			const app = from_apps_screen;
 			from_apps_screen = null;
 			remember_pick(null);
-			offer_modules(this, app);
+			once_page_shows(() => offer_modules(this, app));
 		}
 		return result;
 	});
@@ -2456,20 +2563,8 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// Frappe's rows less its "Apps" row -- and its way out to the Apps screen, when the rail's own
 	// switcher carries one -- then the rail's switcher.
 	function without_app_switcher(items, switcher) {
-		const dropped = new Set(["switch-app", ...(switcher.length ? ["all-apps"] : [])]);
-		const kept = items
-			.map((group) =>
-				group && Array.isArray(group.options)
-					? {
-							...group,
-							options: group.options.filter(
-								(row) => !(row && dropped.has(row.name))
-							),
-					  }
-					: group
-			)
-			.filter((group) => !group || !Array.isArray(group.options) || group.options.length);
-		return [...kept, ...switcher];
+		const dropped = ["switch-app", ...(switcher.length ? ["all-apps"] : [])];
+		return [...without_rows(items, dropped), ...switcher];
 	}
 
 	// Frappe's switcher group, known by its rows rather than by where it sits: Modules, Apps, and
@@ -2552,10 +2647,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				// The Module Menu's rows are the only place modules are listed, so the one on
 				// screen is marked there.
 				selected: menu_picker && entry.shell === sidebar.current_module,
-				onclick: guarded(
-					() => open_module(sidebar, entry.shell, "fade"),
-					() => sidebar.open_module(entry.shell)
-				),
+				onclick: module_opener(sidebar, entry.shell, "fade"),
 			});
 		});
 		return groups;

@@ -23,6 +23,9 @@ shapes that resolver could not give a stable answer for:
 
 It also warns, without refusing, when a picture is a private file, which the
 rail and the Apps screen cannot load.
+
+And it tidies up after an app is uninstalled (`before_app_uninstall`,
+`after_app_uninstall`).
 """
 
 import re
@@ -32,10 +35,12 @@ from frappe import _
 from frappe.model.document import Document
 
 from opendesk.open_desk.desk_apps import (
+	ADD,
 	APP,
 	APP_MODULE,
 	MODULE,
 	OTHER,
+	REPLACE,
 	SPACER,
 	row_type,
 )
@@ -221,3 +226,48 @@ def installed_app_options() -> list[dict]:
 		{"value": name, "label": (meta.get(name) or {}).get("title") or name}
 		for name in installed_app_names()
 	]
+
+
+# Uninstalling an app
+# -------------------
+#
+# Frappe deletes every record that links to an uninstalled app's modules, Desk App Module rows
+# among them. A record in Replace mode can be left listing no module at all, which would send
+# every module of its app to Other -- after a reinstall too. Nobody chose that, so such a record
+# goes back to Add, and the app keeps its own modules. A Replace record that listed none before
+# the uninstall was left that way on purpose, and is left alone. (A dry run deletes nothing, so
+# nothing changes either.)
+
+
+def before_app_uninstall(app_name: str) -> None:
+	"""Note how many modules each Replace record lists, before Frappe deletes any."""
+	frappe.flags.opendesk_replace_rows = _replace_module_counts()
+
+
+def after_app_uninstall(app_name: str) -> None:
+	"""Switch to Add each Replace record the uninstall left listing no module."""
+	before = frappe.flags.pop("opendesk_replace_rows", None) or {}
+	emptied = [name for name, count in _replace_module_counts().items() if not count and before.get(name)]
+	for name in emptied:
+		doc = frappe.get_doc(APP, name)
+		doc.module_mode = ADD
+		doc.save(ignore_permissions=True)
+	if emptied:
+		# Frappe has committed the uninstall before calling this, and commits nothing after it.
+		frappe.db.commit()
+
+
+def _replace_module_counts() -> dict[str, int]:
+	names = frappe.get_all(APP, filters={"module_mode": REPLACE}, pluck="name")
+	if not names:
+		return {}
+	rows = frappe.get_all(
+		APP_MODULE,
+		filters={"parent": ["in", names], "parenttype": APP, "module": ["is", "set"]},
+		fields=["parent"],
+		parent_doctype=APP,
+	)
+	counts = dict.fromkeys(names, 0)
+	for row in rows:
+		counts[row.parent] += 1
+	return counts

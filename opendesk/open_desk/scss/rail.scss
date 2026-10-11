@@ -4,6 +4,24 @@
  * image rather than a glyph, which the Dock's tiles do not size, so it is sized here to sit in
  * the tile the way the Dock's own app mark sits at the top.
  */
+
+// The Dock's tile fills, its rule and its strong ink, which the rail's own trays and tiles share
+// with Frappe's Dock. Frappe 16 defines them in `desk/dock.scss`; its develop branch has dropped
+// them, so each is read with Frappe 16's value to fall back on. (`test_frappe_seams` checks that
+// every variable read here without a fallback is defined somewhere.)
+:root {
+	--opendesk-tile-hover: var(--dock-tile-hover, rgba(0, 0, 0, 0.07));
+	--opendesk-tile-active: var(--dock-tile-active, rgba(0, 0, 0, 0.12));
+	--opendesk-rule: var(--dock-rule, rgba(0, 0, 0, 0.12));
+	--opendesk-ink-strong: var(--dock-ink-strong, var(--ink-gray-9));
+}
+
+[data-theme="dark"] {
+	--opendesk-tile-hover: var(--dock-tile-hover, rgba(255, 255, 255, 0.14));
+	--opendesk-tile-active: var(--dock-tile-active, rgba(255, 255, 255, 0.22));
+	--opendesk-rule: var(--dock-rule, rgba(255, 255, 255, 0.18));
+}
+
 body.opendesk-rail-on .dock-item.opendesk-rail-app {
 	.dock-item-icon {
 		display: flex;
@@ -223,7 +241,8 @@ body .modal .opendesk-arrange-letter {
 		height: 18px;
 		min-width: 18px;
 		padding: 0;
-		border-radius: var(--border-radius-sm);
+		// As Frappe's rows round their logos: by a variable Frappe 16 does not define, so square.
+		border-radius: var(--border-radius-sm, 0);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -836,7 +855,7 @@ body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no
 	width: 24px;
 	height: 1px;
 	margin: 0 auto;
-	background: var(--dock-rule);
+	background: var(--opendesk-rule);
 }
 
 // Accordion Rail (see the script): the open app's modules under its tile, a smaller tile each, on
@@ -850,7 +869,7 @@ body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no
 	// Closer to the tile it belongs to than to the next app.
 	margin-top: -3px;
 	border-radius: 12px;
-	background: var(--dock-tile-hover);
+	background: var(--opendesk-tile-hover);
 	transition: grid-template-rows 0.25s ease-in-out, opacity 0.2s ease, margin 0.25s ease-in-out;
 
 	&.opendesk-rail-group-folded {
@@ -890,16 +909,16 @@ body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no
 	transition: background-color 0.15s ease, color 0.15s ease;
 
 	&:hover {
-		color: var(--dock-ink-strong);
+		color: var(--opendesk-ink-strong);
 	}
 
 	&.active {
-		background: var(--dock-tile-active);
-		color: var(--dock-ink-strong);
+		background: var(--opendesk-tile-active);
+		color: var(--opendesk-ink-strong);
 	}
 
 	&:focus-visible {
-		outline: 2px solid var(--dock-ink-strong);
+		outline: 2px solid var(--opendesk-ink-strong);
 		outline-offset: 1px;
 	}
 }
@@ -909,7 +928,7 @@ body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no
 	width: 16px;
 	height: 1px;
 	margin: 2px 0;
-	background: var(--dock-rule);
+	background: var(--opendesk-rule);
 }
 
 // Accordion Sidebar (see the script): the app's modules as a stack of panels in the sidebar, one

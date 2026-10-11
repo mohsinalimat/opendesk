@@ -111,15 +111,36 @@ def log_boot_failure(title: str) -> None:
 	The boot hooks run on every desk load for every user, so a fault in one would otherwise
 	write an Error Log per page shown. Called from the `except` that caught it.
 	"""
-	key = f"opendesk_boot_failure:{title}"
+	if _first_this_hour(f"opendesk_boot_failure:{title}"):
+		frappe.log_error(title=title, defer_insert=True)
+
+
+def _first_this_hour(key: str) -> bool:
+	"""Whether nothing has been logged under `key` in the last `BOOT_FAILURE_QUIET` seconds."""
 	try:
 		if frappe.cache.get_value(key):
-			return
+			return False
 		frappe.cache.set_value(key, 1, expires_in_sec=BOOT_FAILURE_QUIET)
 	except Exception:
 		# No cache to ask: logged every time, which is still better than not at all.
 		pass
-	frappe.log_error(title=title, defer_insert=True)
+	return True
+
+
+@frappe.whitelist(methods=["POST"])
+def report_rail_failure(error: str, route: str | None = None) -> None:
+	"""Log that the rail met a change in Frappe in someone's browser and switched itself off.
+
+	The desk's half gives up quietly (`give_up` in `js/rail.js`): the person sees Frappe's own desk
+	and the reason is only in their console. This puts it in the Error Log, where an upgrade that
+	moved something is noticed -- once an hour per site, however many desks meet it.
+	"""
+	if _first_this_hour("opendesk_rail_failure"):
+		frappe.log_error(
+			title="Open Desk rail: switched off in the browser",
+			message=f"User: {frappe.session.user}\nRoute: {route or ''}\n\n{(error or '')[:4000]}",
+			defer_insert=True,
+		)
 
 
 # Each Select option, by the name the desk is told (`js/rail.js` checks these names). A value the

@@ -2,8 +2,8 @@ app_name = "opendesk"
 app_title = "Open Desk"
 app_publisher = "Peter"
 app_description = "An app rail and other desk navigation extensions for Frappe"
-app_email = "pgraif@gmail.com"
-app_license = "none"
+app_email = "peter@theopen.institute"
+app_license = "MIT"
 
 # On Frappe's Apps screen and in its Apps switcher, for those who may configure it. Declaring this
 # is also what makes Frappe -- and the rail, which follows Frappe's rule -- list Open Desk as an
@@ -58,6 +58,11 @@ doc_events = {
 		for doctype in ("Desk App", "Module Def", "Dock")
 	},
 }
+
+# Uninstalling another app: a Desk App in Replace mode that loses every module row it had goes
+# back to Add (`doctype/desk_app/desk_app.py`).
+before_app_uninstall = ["opendesk.open_desk.doctype.desk_app.desk_app.before_app_uninstall"]
+after_app_uninstall = ["opendesk.open_desk.doctype.desk_app.desk_app.after_app_uninstall"]
 
 # Boot
 # ----

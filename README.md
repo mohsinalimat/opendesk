@@ -41,6 +41,15 @@ once into `~/.cache/opendesk-smoke`.
 OPENDESK_SMOKE_PASSWORD=admin tests/smoke/run.sh http://demo.localhost:8000
 ```
 
+Before pulling a new Frappe: the names, classes, icons and boot data Open Desk leans on, looked
+for in the Frappe it would pull (any ref `apps/frappe` has fetched; the checkout is not touched).
+A failure is a list of what to read in Frappe's diff, not a broken desk:
+
+```bash
+git -C apps/frappe fetch upstream
+apps/opendesk/tests/check_frappe.sh upstream/version-16-hotfix   # or upstream/develop
+```
+
 Site-less, over Frappe's source and plain data:
 
 ```bash
@@ -48,3 +57,7 @@ cd sites && ../env/bin/python -m unittest opendesk.open_desk.test_frappe_seams \
   opendesk.open_desk.test_desk_apps opendesk.open_desk.test_apps_screen \
   opendesk.open_desk.test_module_tiles
 ```
+
+### License
+
+MIT

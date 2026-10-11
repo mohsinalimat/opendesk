@@ -20,6 +20,15 @@ but quietly. This reads Frappe's own source instead, so the run after
 
 A failure here is not a broken desk. It is the list of what to look at in
 Frappe's diff before shipping the upgrade.
+
+To check a Frappe before pulling it, point `OPENDESK_FRAPPE_SOURCE` at a copy of its
+source (the directory holding `frappe/`), for instance one made with
+`git -C apps/frappe archive upstream/version-16-hotfix frappe | tar -x -C /tmp/frappe-next`:
+
+    OPENDESK_FRAPPE_SOURCE=/tmp/frappe-next ../env/bin/python -m unittest \
+        opendesk.open_desk.test_frappe_seams
+
+Python names are then looked for in that source rather than imported.
 """
 
 import os
@@ -79,6 +88,7 @@ SEAMS = {
 	("ui", "sidebar", "dock.js"): {
 		"methods": ["make", "render_entries", "render_logo", "name_tile", "close", "refresh"],
 		"properties": [
+			"sidebar",
 			"$dock",
 			"$items",
 			"tooltips",
@@ -166,6 +176,12 @@ SEAMS = {
 			"render",
 			"render_preview",
 			"selection",
+			# Read on open, saved on Save, and the order taken from the rows before either save.
+			"read",
+			"save",
+			"sync_order",
+			# Manage Modules' New Module button.
+			"extra_pane_actions",
 		],
 		"properties": [
 			"entries",
@@ -178,20 +194,105 @@ SEAMS = {
 			"$body",
 			"$preview",
 		],
-		"strings": ["frappe.ui.ArrangementEditor ="],
+		"strings": [
+			"frappe.ui.ArrangementEditor =",
+			# The layer each editor declares: Frappe calls its `save` and shows its `saved()`.
+			"this.layer_config.save",
+			"this.layer_config.saved()",
+		],
 	},
 	# The Module Menu opens and closes the header's menu, and chains onto its `opts.on_close`.
 	("ui", "components", "dropdown.js"): {
-		"methods": ["open", "close"],
+		"methods": ["open", "close", "is_open"],
 		"properties": ["opts"],
 		"strings": ["frappe.ui.Dropdown =", "this.opts.on_close && this.opts.on_close(reason)"],
 	},
 	# Manage Desk Apps' Apps Screen menu marks the current choice; the rows' labels are text.
-	("ui", "components", "menu.js"): {"strings": ["item.selected", "textContent"]},
+	("ui", "components", "menu.js"): {"strings": ["item.selected", "textContent", '"es-menu"']},
 	# An Apps screen tile: where it leads, and the two links the rail recognises it by.
 	("ui", "desktop_icon.html"): {"strings": ['class="icon-link"', 'class="icon-title"', "icon.logo_url"]},
 	("utils", "utils.js"): {"methods": ["app_logo", "desktop_icon", "sidebar_for_module"]},
+	# The rail's own tips and its mark's, destroyed when it redraws or gives up.
+	("ui", "components", "tooltip.js"): {"methods": ["destroy"], "strings": ["frappe.ui.Tooltip ="]},
+	# The rail's Search and bell are Frappe's, found by class: Search opens from a delegated click
+	# on the class, the bell's panel answers to its trigger, and every count on the page is filled.
+	("ui", "page.js"): {"strings": ['awesome_bar.setup(".navbar-modal-search-mobile")']},
+	# The rail waits for the routed page to be on screen before reading its sidebar: Frappe
+	# announces the page, then shows or hides the sidebar for it (`once_page_shows`).
+	("views", "container.js"): {
+		"strings": ['$(document).trigger("page-change", this.page);', "this.toggle_sidebar();"]
+	},
+	("ui", "toolbar", "awesome_bar.js"): {"strings": ['$(document).on("click", element']},
+	("ui", "notifications", "notifications.js"): {
+		"strings": [
+			'name: "notifications"',
+			'trigger_selector: ".sidebar-notification"',
+			'$(".notification-count")',
+		]
+	},
+	# Frappe replaces the boot's copies wholesale after a sidebar or workspace save, and
+	# `js/boot_arrangement.js` places the modules again on each such assignment. A copy changed in
+	# place instead would leave the desk naming Frappe's apps until a reload.
+	("ui", "sidebar", "sidebar_manager.js"): {"strings": ["frappe.boot.module_sidebars = "]},
+	("views", "workspace", "workspace.js"): {
+		"strings": ["frappe.boot.module_sidebars = ", "frappe.boot.app_data = "]
+	},
 }
+
+# What a method does inside, where its name alone says too little. Read from the method's body.
+METHOD_BODIES = {
+	("ui", "sidebar", "sidebar.js"): {
+		# `user_menu_rows.js` edits the first Dropdown this makes, from its options array, and the
+		# rail finds Manage Dock among its rows.
+		"create_user_menu": ["new frappe.ui.Dropdown({", "options: [", '"workspace-selector"'],
+	},
+}
+
+# The sidebar's standard items, by class: the rail hides their band beside it and draws these two
+# at its foot (`js/rail.js`). Anything else Frappe puts in the band would be out of reach.
+STANDARD_ITEMS = {"navbar-modal-search-mobile", "sidebar-notification hidden"}
+
+# The boot data the server half reads, by the source that shapes it.
+PYTHON_SEAMS = {
+	# Each `module_sidebars` entry (`desk_apps._shells`, `arrange.py`, `js/boot_arrangement.js`).
+	("desk", "doctype", "sidebar", "sidebar.py"): [
+		'"name": self.name',
+		'"module": self.module',
+		'"label": self.label',
+		'"app": self.app',
+		'"header_icon": self.header_icon',
+	],
+	# Each `app_data` entry (`desk_apps.apps_from_app_data`, `apps_screen.py`, the rail).
+	("boot.py",): [
+		"on_apps_screen=",
+		"sequence_id=",
+		"app_name=",
+		"app_title=",
+		"app_route=",
+		"desk_route=",
+		"app_logo_url=",
+		"dock=",
+		# Module tiles take the Apps screen's icon style.
+		"bootinfo.desktop_icon_style =",
+		# Frappe's own map of module to app, which `desk_apps.module_apps` asks for by name. A boot
+		# that builds it some other way may leave out what this function still puts in.
+		"bootinfo.module_app = get_boot_module_app()",
+	],
+	# The arrangement applies only where the desktop is the Apps screen (`apps_screen.enabled`).
+	("desk", "doctype", "desktop_settings", "desktop_settings.py"): ['APPS = "Apps"'],
+}
+
+# Fields the server half reads off Frappe's doctypes, by the doctype's schema.
+DOCTYPE_FIELDS = {
+	# An app's shipped Dock, read row by row (`desk_apps.shipped_docks`).
+	("desk", "doctype", "dock_item", "dock_item.json"): ["link_type", "link_to", "hidden"],
+	# The rail's mark (`desk_apps.site_logo`).
+	("website", "doctype", "website_settings", "website_settings.json"): ["app_logo"],
+	("core", "doctype", "navbar_settings", "navbar_settings.json"): ["app_logo"],
+}
+
+# Icons Open Desk draws by a name it works out rather than writes in the call.
+COMPUTED_ICONS = ["chevrons-left", "chevrons-right", "box", "folder", "square"]
 
 # The rail's drawers open over the sidebar, one above its z-index.
 SCSS_SEAMS = {("desk", "sidebar.scss"): ["z-index: 1020"]}
@@ -240,9 +341,31 @@ BOOT_FUNCTIONS = [
 BOOT_KEYS = ["module_sidebars", "app_data"]
 
 
+# Another Frappe's source to check instead of the installed one (see the module's docstring).
+FRAPPE_SOURCE = os.environ.get("OPENDESK_FRAPPE_SOURCE")
+
+
+def _frappe_path(*parts: str) -> str:
+	if FRAPPE_SOURCE:
+		return os.path.join(FRAPPE_SOURCE, "frappe", *parts)
+	return frappe.get_app_path("frappe", *parts)
+
+
 def _source(*parts: str) -> str:
-	with open(frappe.get_app_path("frappe", *parts), encoding="utf-8") as f:
+	with open(_frappe_path(*parts), encoding="utf-8") as f:
 		return f.read()
+
+
+def _defines(module: str, name: str) -> bool:
+	"""Whether a Frappe module has a function of this name: imported, or read in `FRAPPE_SOURCE`."""
+	if FRAPPE_SOURCE:
+		parts = module.split(".")[1:]
+		path = os.path.join(*parts, "__init__.py") if os.path.isdir(_frappe_path(*parts)) else None
+		source = _source(path) if path else _source(*parts[:-1], parts[-1] + ".py")
+		return bool(re.search(rf"(?m)^def {re.escape(name)}\(", source))
+	import importlib
+
+	return callable(getattr(importlib.import_module(module), name, None))
 
 
 class TestFrappeSeams(TestCase):
@@ -253,7 +376,9 @@ class TestFrappeSeams(TestCase):
 			# Asserted as booleans: a failure names the seam, not the whole file.
 			for method in seams.get("methods", ()):
 				with self.subTest(path=path, method=method):
-					pattern = rf"(?m)^\s*(static\s+|get\s+)?{re.escape(method)}\s*\(.*\)\s*\{{\s*\}}?\s*$"
+					pattern = (
+						rf"(?m)^\s*(static\s+|get\s+|async\s+)?{re.escape(method)}\s*\(.*\)\s*\{{\s*\}}?\s*$"
+					)
 					self.assertTrue(re.search(pattern, source), f"{method}() is not defined in {path}")
 			for prop in seams.get("properties", ()):
 				with self.subTest(path=path, property=prop):
@@ -264,11 +389,9 @@ class TestFrappeSeams(TestCase):
 					self.assertTrue(text in source, f"{text!r} is not in {path}")
 
 	def test_boot_still_offers_what_the_rail_reads(self):
-		import frappe.boot
-
 		for name in BOOT_FUNCTIONS:
 			with self.subTest(function=name):
-				self.assertTrue(callable(getattr(frappe.boot, name, None)))
+				self.assertTrue(_defines("frappe.boot", name), f"frappe.boot.{name} is gone")
 		source = _source("boot.py")
 		for key in BOOT_KEYS:
 			with self.subTest(key=key):
@@ -276,13 +399,10 @@ class TestFrappeSeams(TestCase):
 
 	def test_server_functions_are_still_there(self):
 		"""Checked without a site: a name that moved would otherwise show only in the Error Log."""
-		import importlib
-
 		for module, names in SERVER_FUNCTIONS.items():
-			imported = importlib.import_module(module)
 			for name in names:
 				with self.subTest(function=f"{module}.{name}"):
-					self.assertTrue(callable(getattr(imported, name, None)))
+					self.assertTrue(_defines(module, name), f"{module}.{name} is gone")
 
 	def test_an_apps_shipped_dock_is_still_readable(self):
 		"""`desk_apps.shipped_docks` reads each app's own Dock, before any layer."""
@@ -314,7 +434,7 @@ class TestFrappeSeams(TestCase):
 
 		frappe_source = []
 		for parts in CLASS_SOURCES:
-			for root, _dirs, files in os.walk(frappe.get_app_path("frappe", *parts)):
+			for root, _dirs, files in os.walk(_frappe_path(*parts)):
 				for name in files:
 					if name.endswith((".scss", ".js", ".html")):
 						with open(os.path.join(root, name), encoding="utf-8") as f:
@@ -352,16 +472,103 @@ class TestFrappeSeams(TestCase):
 				with self.subTest(path=os.path.join(*parts), string=text):
 					self.assertIn(text, source)
 		self.assertTrue(
-			os.path.isfile(frappe.get_app_path("frappe", "public", "js", "arrangement_editor.bundle.js")),
+			os.path.isfile(_frappe_path("public", "js", "arrangement_editor.bundle.js")),
 			"js/arrange.js loads arrangement_editor.bundle.js, which Frappe no longer ships",
 		)
 
 	def test_icon_sprites_still_hold_symbols_module_tiles_can_read(self):
 		"""`module_tiles` lifts `<symbol id="icon-...">` out of Frappe's sprites and sets their tones."""
-		import frappe.hooks
-
-		sprite = next(url for url in frappe.hooks.app_include_icons if url.endswith("module-icons.svg"))
-		source = _source("public", *sprite.removeprefix("/assets/frappe/").split("/"))
+		sprite = re.search(r'"/assets/frappe/([^"]*module-icons\.svg)"', _source("hooks.py"))
+		self.assertTrue(sprite, "Frappe's hooks.py no longer lists its module-icons.svg sprite")
+		source = _source("public", *sprite.group(1).split("/"))
 		self.assertRegex(source, r'<symbol\b[^>]*\bid="icon-[\w-]+-duotone"')
 		self.assertIn("--duotone-dark", source)
 		self.assertIn("--duotone-light", source)
+
+	def test_methods_still_do_what_open_desk_leans_on(self):
+		for parts, methods in METHOD_BODIES.items():
+			source = _source(*JS, *parts)
+			for name, texts in methods.items():
+				body = re.search(rf"(?ms)^\t{name}\(.*?\) \{{\n.*?^\t\}}\n", source)
+				for text in texts:
+					with self.subTest(method=name, string=text):
+						self.assertTrue(body and text in body.group(0), f"{text!r} is not in {name}()")
+
+	def test_the_standard_items_are_the_two_the_rail_redraws(self):
+		source = _source(*JS, "ui", "sidebar", "sidebar.js")
+		body = re.search(r"(?ms)^\tadd_standard_items\(.*?\) \{\n.*?^\t\}\n", source)
+		self.assertTrue(body, "add_standard_items() is not in sidebar.js")
+		self.assertEqual(
+			set(re.findall(r'class: "([^"]+)"', body.group(0))),
+			STANDARD_ITEMS,
+			"Frappe's sidebar band changed: beside the rail it is hidden, and only Search and "
+			"Notifications are drawn again at the rail's foot",
+		)
+
+	def test_the_boot_data_keeps_its_shape(self):
+		for parts, texts in PYTHON_SEAMS.items():
+			source = _source(*parts)
+			for text in texts:
+				with self.subTest(path=os.path.join(*parts), string=text):
+					self.assertTrue(text in source, f"{text!r} is not in {os.path.join(*parts)}")
+
+	def test_doctype_fields_the_server_half_reads_are_still_there(self):
+		import json
+
+		for parts, fields in DOCTYPE_FIELDS.items():
+			with open(_frappe_path(*parts), encoding="utf-8") as f:
+				names = {field.get("fieldname") for field in json.load(f)["fields"]}
+			for field in fields:
+				with self.subTest(doctype=parts[-1], field=field):
+					self.assertIn(field, names)
+
+	def test_every_css_variable_the_rail_reads_is_defined(self):
+		"""An undefined variable throws nothing either: the rule just draws nothing.
+
+		A variable read with a fallback, `var(--x, ...)`, draws either way, so only bare ones count.
+		"""
+		with open(frappe.get_app_path("opendesk", "open_desk", "scss", "rail.scss")) as f:
+			stylesheet = re.sub(r"//[^\n]*|/\*[\s\S]*?\*/", "", f.read())
+		used = set(re.findall(r"var\((--[\w-]+)\s*\)", stylesheet))
+		defined = set(re.findall(r"(--[\w-]+)\s*:", stylesheet))
+		# Frappe's stylesheets, and the design tokens under `public/css/espresso`.
+		for folder in ("scss", "css"):
+			for root, _dirs, files in os.walk(_frappe_path("public", folder)):
+				for name in files:
+					if name.endswith((".scss", ".css")):
+						with open(os.path.join(root, name), encoding="utf-8") as f:
+							defined |= set(re.findall(r"(--[\w-]+)\s*:", f.read()))
+		for name in sorted(used):
+			with self.subTest(variable=name):
+				self.assertTrue(name in defined, f"var({name}) in rail.scss is not defined in Frappe")
+
+	def test_every_icon_open_desk_names_is_in_a_sprite(self):
+		"""A missing icon draws an empty box, quietly. Looked for in the sprites Frappe loads."""
+		names = set(COMPUTED_ICONS)
+		for folder in (("open_desk", "js"), ("public", "js")):
+			path = frappe.get_app_path("opendesk", *folder)
+			for name in os.listdir(path):
+				if name.endswith(".js"):
+					with open(os.path.join(path, name), encoding="utf-8") as f:
+						source = f.read()
+					names |= set(re.findall(r'frappe\.utils\.icon\(\s*"([\w-]+)"', source))
+					names |= set(re.findall(r'\bicon: "([\w-]+)"', source))
+		symbols = set()
+		for sprite in re.findall(r'"/assets/frappe/([^"]+\.svg)"', _source("hooks.py")):
+			symbols |= set(re.findall(r'id="icon-([\w-]+)"', _source("public", *sprite.split("/"))))
+		with open(frappe.get_app_path("opendesk", "public", "icons", "module-icons.svg")) as f:
+			symbols |= set(re.findall(r'id="icon-([\w-]+)"', f.read()))
+		for name in sorted(names):
+			with self.subTest(icon=name):
+				self.assertTrue(name in symbols, f"no sprite Frappe loads has the icon {name!r}")
+
+	def test_the_editor_classes_arrange_js_uses_are_frappes(self):
+		"""`js/arrange.js` draws rows and panes with the editor's own `ws-` classes."""
+		with open(frappe.get_app_path("opendesk", "open_desk", "js", "arrange.js")) as f:
+			used = set(re.findall(r"\b(ws-[\w-]+)", f.read()))
+		frappe_source = _source(*JS, "ui", "sidebar", "arrangement_editor.js") + _source(
+			"public", "scss", "desk", "arrangement_editor.scss"
+		)
+		for name in sorted(used):
+			with self.subTest(css_class=name):
+				self.assertRegex(frappe_source, rf"(?<![\w-]){re.escape(name)}(?![\w-])")

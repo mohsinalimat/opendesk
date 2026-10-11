@@ -58,7 +58,69 @@
 	function removed_on_close(editor) {
 		const $wrapper = editor && editor.dialog && editor.dialog.$wrapper;
 		if ($wrapper) $wrapper.one("hidden.bs.modal", () => $wrapper.remove());
+		ask_before_discarding(editor);
 		return editor;
+	}
+
+	// Closing an editor with changes not saved -- Escape, its cross, a click beside it -- asks
+	// first. Bootstrap sends each of those through the modal's own `hide`, so it is asked there:
+	// before Bootstrap starts to close, so Frappe's record of the open dialogs is never touched by
+	// a close that does not happen. Save closes without asking (`opendesk_saved`), and so does an
+	// editor that never loaded. Without Bootstrap's modal to hang this on, closing just closes.
+	function ask_before_discarding(editor) {
+		const modal = editor && editor.dialog && editor.dialog.$wrapper.data("bs.modal");
+		if (!modal || typeof modal.hide !== "function") return;
+		const hide = modal.hide;
+		modal.hide = function (...args) {
+			if (editor.opendesk_saved || editor.opendesk_discarded || !has_changes(editor)) {
+				return hide.apply(this, args);
+			}
+			// Escape reaches the modal twice (Bootstrap's own key, and Frappe's): one question.
+			if (editor.opendesk_asking) return;
+			editor.opendesk_asking = true;
+			frappe.confirm(
+				__("You have changes that are not saved. Close without saving them?"),
+				() => {
+					editor.opendesk_discarded = true;
+					// Once the question has closed, so the editor is the top dialog again and
+					// Frappe takes it off its stack.
+					setTimeout(() => editor.dialog.hide());
+				},
+				() => {
+					editor.opendesk_asking = false;
+				},
+				__("Close"),
+				__("Keep Editing")
+			);
+		};
+	}
+
+	// The arrangement on screen, as its save would send it, without the stamp: what has to differ
+	// from the one first drawn for there to be anything to lose.
+	function arrangement_now(editor) {
+		editor.sync_order();
+		const { stamp, ...args } = editor.save_args();
+		return JSON.stringify(args);
+	}
+
+	// Noted once the editor has read and drawn the arrangement (`load`).
+	function note_loaded(editor) {
+		if (!editor.loaded) return;
+		try {
+			editor.opendesk_loaded_as = arrangement_now(editor);
+		} catch (e) {
+			editor.opendesk_loaded_as = undefined;
+		}
+	}
+
+	function has_changes(editor) {
+		if (!editor.loaded || editor.opendesk_loaded_as === undefined) return false;
+		try {
+			return arrangement_now(editor) !== editor.opendesk_loaded_as;
+		} catch (e) {
+			// Unreadable is not a reason to keep someone in a dialog.
+			return false;
+		}
 	}
 
 	opendesk.rail.manage_rail = () =>
@@ -88,9 +150,12 @@
 			})
 			.catch(failed);
 
-	// Whether this user may write the records both editors save to.
+	// Whether this user may write the records both editors save to, and make new ones: what the
+	// server asks of them (`arrange._check`).
 	opendesk.rail.can_manage = () =>
-		!!frappe.model.can_write && frappe.model.can_write("Desk App");
+		!!(frappe.model.can_write && frappe.model.can_create) &&
+		frappe.model.can_write("Desk App") &&
+		frappe.model.can_create("Desk App");
 
 	// What the editor is called, in both menus and over its dialog: it arranges the Desk Apps, on
 	// the rail and on the Apps screen.
@@ -111,7 +176,23 @@
 
 	// After a save: the rail redraws itself (`opendesk.rail.apply`); without it, the boot takes
 	// the new arrangement here. Either way an Apps screen on screen is drawn again from it.
+	//
+	// The server has stored the save by now, so nothing here may keep the dialog open: if drawing
+	// it throws, the dialog still closes (Frappe's `save` hides it after `apply`) and a reload shows
+	// what was saved. Left open, Save again would try to make the same new records a second time.
 	function apply_saved(payload) {
+		try {
+			draw_saved(payload);
+		} catch (e) {
+			console.error("opendesk: saved, but could not redraw the desk", e);
+			frappe.show_alert({
+				message: __("Saved. Reload the page to see the change."),
+				indicator: "orange",
+			});
+		}
+	}
+
+	function draw_saved(payload) {
 		// The workspaces as the server has them now, with any a new module brought: the desk's
 		// router finds a page by these, so without them a new module's Home is "not found".
 		// Frappe builds its lookups from the boot's copy, so it is handed over and rebuilt by Frappe.
@@ -126,6 +207,8 @@
 		if (opendesk.rail.apply) {
 			opendesk.rail.apply(payload);
 		} else if (opendesk.boot_arrangement && opendesk.boot_arrangement.adopt) {
+			// Manage Modules reads app titles from here (`prepare`).
+			if (payload.desk_apps) frappe.boot.desk_apps = payload.desk_apps;
 			if (payload.module_sidebars) frappe.boot.module_sidebars = payload.module_sidebars;
 			opendesk.boot_arrangement.adopt(payload.app_data);
 		}
@@ -133,6 +216,19 @@
 		const page = frappe.pages && frappe.pages.desktop && frappe.pages.desktop.desktop_page;
 		if (["desktop", ""].includes(route[0]) && page && typeof page.update === "function") {
 			page.update();
+		}
+	}
+
+	// One save at a time. Frappe's Save button refuses a click while it is busy, but Ctrl+S clicks
+	// it through jQuery all the same (`frappe.app.trigger_primary_action`), and a second save of a
+	// new app or module while the first is out would fail on the records the first just made.
+	async function save_once(editor, save) {
+		if (editor.opendesk_saving) return;
+		editor.opendesk_saving = true;
+		try {
+			return await save();
+		} finally {
+			editor.opendesk_saving = false;
 		}
 	}
 
@@ -290,8 +386,15 @@
 				};
 			}
 
+			async load() {
+				await super.load();
+				note_loaded(this);
+			}
+
 			async read() {
-				const apps = await frappe.xcall(this.layer_config.read);
+				const { apps, stamp } = await frappe.xcall(this.layer_config.read);
+				// Sent back with the save, which is refused if the records moved on in between.
+				this.stamp = stamp;
 				this.entries = new Map();
 				apps.forEach((app) =>
 					this.entries.set(app.key, {
@@ -458,7 +561,18 @@
 					return;
 				}
 				if (!entry.new) {
-					opendesk.rail.manage_modules(key, { on_saved: () => this.refresh_rows() });
+					opendesk.rail.manage_modules(key, {
+						on_saved: ({ read, saved } = {}) => {
+							// That save is one this editor would otherwise refuse to save over.
+							// Only when nobody else's came before it: Manage Modules read the
+							// records as this editor did.
+							if (read && read === this.stamp) this.stamp = saved;
+							// The modules are saved either way; only this row's counts would be stale.
+							this.refresh_rows().catch((e) =>
+								console.error("opendesk: could not refresh the rows", e)
+							);
+						},
+					});
 					return;
 				}
 				opendesk.rail.draft_modules({
@@ -477,7 +591,8 @@
 			// After an app's modules were saved over this editor: what the server now says about each
 			// app's modules and tiles, without touching the order, visibility or settings on screen.
 			async refresh_rows() {
-				const apps = await frappe.xcall(this.layer_config.read);
+				// Not its stamp: what this editor read is what it would save over.
+				const { apps } = await frappe.xcall(this.layer_config.read);
 				apps.forEach((app) => {
 					const entry = this.entries.get(app.key);
 					if (!entry || entry.new) return;
@@ -574,10 +689,18 @@
 								: { key, hidden, apps_screen };
 						})
 					),
+					stamp: this.stamp,
 				};
 			}
 
+			save() {
+				return save_once(this, () => super.save());
+			}
+
 			apply(payload) {
+				// Frappe hides the dialog next: a saved editor closes without asking.
+				this.opendesk_saved = true;
+				this.saved_stamp = payload && payload.stamp;
 				apply_saved(payload);
 			}
 		}
@@ -641,10 +764,17 @@
 				};
 			}
 
+			async load() {
+				await super.load();
+				note_loaded(this);
+			}
+
 			async read() {
 				const data = this.draft
 					? { title: this.draft.title, installed_app: null, rows: this.draft.rows || [] }
 					: await frappe.xcall(this.layer_config.read, { key: this.app_key });
+				// Sent back with the save, which is refused if the records moved on in between.
+				this.stamp = data.stamp;
 				this.data_title = data.title;
 				if (!this.app) {
 					this.dialog.set_title(
@@ -707,10 +837,16 @@
 			}
 
 			// A draft's Save gives its rows back to Manage Desk Apps; a saved app's saves as usual.
-			async save() {
+			save() {
+				return save_once(this, () => this.save_now());
+			}
+
+			async save_now() {
 				if (!this.draft) {
 					await super.save();
-					if (this.on_saved) this.on_saved();
+					if (this.on_saved && this.opendesk_saved) {
+						this.on_saved({ read: this.stamp, saved: this.saved_stamp });
+					}
 					return;
 				}
 				if (!this.loaded) return;
@@ -730,6 +866,8 @@
 						};
 					})
 				);
+				// Handed back to Manage Desk Apps, whose own Save stores them: nothing lost here.
+				this.opendesk_saved = true;
 				this.dialog.hide();
 			}
 
@@ -768,9 +906,9 @@
 				const entry = this.entries.get(key);
 				if (entry.kind !== "category") return;
 				$(
-					`<button class="ws-item-eye opendesk-arrange-rename" title="${__(
-						"Rename"
-					)}">${frappe.utils.icon("edit", "sm")}</button>`
+					`<button class="ws-item-eye opendesk-arrange-rename" title="${frappe.utils.escape_html(
+						__("Rename")
+					)}">${frappe.utils.icon("pencil", "sm")}</button>`
 				)
 					.on("click", () => this.rename(key))
 					.appendTo($el);
@@ -787,6 +925,8 @@
 						reqd: 1,
 					},
 					({ label }) => {
+						// Blank passes `reqd`, and the server drops a heading with no name.
+						if (!label.trim()) return;
 						entry.label = label.trim();
 						this.render_panes();
 					},
@@ -967,10 +1107,13 @@
 						hidden,
 					};
 				});
-				return { key: this.app_key, items: JSON.stringify(rows) };
+				return { key: this.app_key, items: JSON.stringify(rows), stamp: this.stamp };
 			}
 
 			apply(payload) {
+				// Frappe hides the dialog next: a saved editor closes without asking.
+				this.opendesk_saved = true;
+				this.saved_stamp = payload && payload.stamp;
 				apply_saved(payload);
 			}
 		}

@@ -244,12 +244,30 @@ def _site_inputs() -> dict:
 		CACHE_KEY,
 		generator=lambda: {
 			"configured": _configured(),
-			"installed_apps": frappe.get_installed_apps(),
+			"installed_apps": active_apps(),
 			"module_apps": module_apps(),
 			"docks": shipped_docks(),
 			"listed": listed_apps(),
 		},
 	)
+
+
+def active_apps() -> list[str]:
+	"""The installed apps the site has not switched off, in install order: what the rail offers.
+
+	Frappe 17 lets a site disable an installed app without uninstalling it
+	(`frappe.get_active_apps`): its modules leave the desk, and Frappe's Dock and Apps screen
+	pass it over. The rail does the same -- and a Desk App standing for it waits, as for an app
+	not installed (`resolve`), to come back when the app is enabled again. Enabling or disabling
+	an app clears every cache, `_site_inputs` included. Before Frappe 17, every installed app.
+
+	A Desk App's own "hidden" is the rail's alone: the app stays on Frappe's Apps screen and its
+	modules can still be opened. A disabled app is off everywhere.
+	"""
+	get_active_apps = getattr(frappe, "get_active_apps", None)
+	if callable(get_active_apps):
+		return list(get_active_apps())
+	return frappe.get_installed_apps()
 
 
 def listed_apps() -> list[str]:
@@ -264,7 +282,7 @@ def listed_apps() -> list[str]:
 	hosts = app_hosts()
 	return [
 		app
-		for app in frappe.get_installed_apps()
+		for app in active_apps()
 		if frappe.get_hooks("add_to_apps_screen", app_name=app) and app not in hosts
 	]
 
@@ -334,6 +352,13 @@ def resolve(
 	frontends = frontends or {}
 	hosts = hosts or {}
 	docks = docks or {}
+	# A record for an app since uninstalled, or switched off (`active_apps`), waits for it: it
+	# claims nothing and is not drawn, not even for an editor, until the app is back.
+	configured = [
+		app
+		for app in configured
+		if not app.get("installed_app") or app["installed_app"] in (*installed_apps, OTHER)
+	]
 	by_module: dict[str, list[dict]] = {}
 	for sidebar in sidebars:
 		by_module.setdefault(sidebar.get("module") or sidebar["name"], []).append(sidebar)
@@ -743,7 +768,7 @@ def shipped_docks() -> dict[str, dict]:
 	from frappe.desk.doctype.dock.dock import get_app_base
 
 	docks = {}
-	for app in frappe.get_installed_apps():
+	for app in active_apps():
 		rows = [row for row in get_app_base(app) if row.get("link_type") == "Sidebar"]
 		if rows:
 			docks[app] = {

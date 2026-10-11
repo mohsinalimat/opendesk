@@ -314,6 +314,56 @@ class SiteInputsAreCached(TestCase):
 			self.assertEqual(reads, ["configured", "configured"])
 
 
+class ActiveApps(TestCase):
+	"""Frappe 17 can switch an installed app off; the rail follows it where Frappe can."""
+
+	def active(self, get_active_apps):
+		from unittest.mock import patch
+
+		from opendesk.open_desk import desk_apps as nav
+
+		with (
+			patch.object(nav.frappe, "get_active_apps", get_active_apps, create=True),
+			patch.object(nav.frappe, "get_installed_apps", return_value=["frappe", "erpnext", "hrms"]),
+		):
+			return nav.active_apps()
+
+	def test_the_apps_frappe_has_not_switched_off(self):
+		self.assertEqual(self.active(lambda: ["frappe", "erpnext"]), ["frappe", "erpnext"])
+
+	def test_every_installed_app_where_frappe_cannot_switch_one_off(self):
+		self.assertEqual(self.active(None), ["frappe", "erpnext", "hrms"])
+
+
+class ReplaceKeepsWhatTheEditorDidNotSee(TestCase):
+	"""Manage Modules lists what its user can open; a Replace record's other modules stay off."""
+
+	def leaves_out(self, mode, rows, visible):
+		from unittest.mock import patch
+
+		from opendesk.open_desk import arrange
+		from opendesk.open_desk import desk_apps as nav
+
+		module_apps = {"accounts": "erpnext", "payroll": "erpnext", "crm": "crm_app"}
+		with (
+			patch.object(nav, "_site_inputs", return_value={"module_apps": module_apps}),
+			patch.object(nav, "app_hosts", return_value={"crm_app": "erpnext"}),
+		):
+			return arrange._leaves_out_unseen(mode, "erpnext", rows, visible)
+
+	def test_a_module_the_editor_could_not_see_keeps_replace(self):
+		# Payroll is not visible to this editor and not in the table: it was taken off before.
+		self.assertTrue(self.leaves_out("Replace", [{"module": "Accounts"}], {"Accounts", "CRM"}))
+
+	def test_every_own_module_seen_or_listed_lets_it_go_to_add(self):
+		rows = [{"module": "Accounts"}, {"module": "Payroll"}, {"module": "CRM"}]
+		self.assertFalse(self.leaves_out("Replace", rows, {"Accounts", "CRM"}))
+		self.assertFalse(self.leaves_out("Replace", [{"module": "Accounts"}], {"Payroll", "CRM"}))
+
+	def test_an_add_record_is_not_turned_into_replace(self):
+		self.assertFalse(self.leaves_out("Add", [], set()))
+
+
 def bound(name, installed_app, *sidebars, mode="Add", hidden=0, **kwargs):
 	return {
 		**app(name, *sidebars, **kwargs),
@@ -407,10 +457,14 @@ class TestBoundApps(TestCase):
 		)
 		self.assertEqual(titled(result, "Ledger")["key"], "desk-app:Ledger")
 
-	def test_an_app_not_installed_is_only_a_grouping(self):
+	def test_a_record_for_an_app_not_installed_waits_for_it(self):
+		# Its modules stay where they would be without it, and it is not drawn, even for an editor.
 		result = rail([bound("Desk", "helpdesk", "Helpdesk")])
-		self.assertEqual(result[0]["key"], "desk-app:Desk")
-		self.assertEqual(shape(result)[0], ("Desk", ["Helpdesk"]))
+		self.assertNotIn("desk-app:Desk", [app["key"] for app in result])
+		self.assertNotIn("Desk", [title for title, _modules in shape(result)])
+		self.assertNotIn(
+			"desk-app:Desk", [a["key"] for a in rail([bound("Desk", "helpdesk")], everything=True)]
+		)
 
 
 LANDING = [
