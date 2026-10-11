@@ -109,15 +109,8 @@ body.opendesk-rail-on {
 	}
 }
 
-// Deeper is to the left in a right-to-left layout.
-[dir="rtl"] .sidebar-items {
-	&.opendesk-enter-forward {
-		animation-name: opendesk-enter-from-left;
-	}
-	&.opendesk-enter-back {
-		animation-name: opendesk-enter-from-right;
-	}
-}
+// Deeper is to the left in a right-to-left layout: Frappe's RTL build mirrors the keyframes
+// above, so nothing is swapped here.
 
 // The sliding rows must not widen the sidebar for the moment they are offset.
 body.opendesk-rail-on .body-sidebar-top {
@@ -177,10 +170,6 @@ body.opendesk-rail-tools-on .dock .opendesk-rail-tools {
 		font-size: 10px;
 		line-height: 16px;
 		text-align: center;
-
-		&.hidden {
-			display: none;
-		}
 	}
 }
 
@@ -204,14 +193,28 @@ body.opendesk-rail-tools-on .dock .opendesk-rail-tools {
 		.body-sidebar-container.expanded
 		.sidebar-panel {
 		left: 0;
-		z-index: 1021;
+		// Over the sidebar's edge (1022) and its collapse arrow (1023), which sit inside the drawer
+		// once it opens over the sidebar; under the rail (1030).
+		z-index: 1024;
 	}
+}
+
+// Manage Modules' preview: a Spacer is a gap, and a Category a small heading over its modules,
+// as the sidebar draws them.
+body .modal .opendesk-arrange-gap {
+	flex: 0 0 auto;
+	height: 8px;
+}
+
+body .modal .opendesk-arrange-heading {
+	padding: 8px 8px 2px;
+	font-size: var(--text-xs);
+	color: var(--ink-gray-5);
 }
 
 // A letter tile in Manage Desk Apps and Manage Modules (`letter_tile` in `js/arrange.js`): the same
 // 18px square as the logos and icons in the editor's rows, letter and all. Scoped to the dialog
-// strongly enough to beat the Apps screen's own tile rules (`body.desktop-page .icon-container`),
-// which stay on the page after it was visited, and the editor can be opened from it.
+// strongly enough to beat Frappe's own `.icon-container` sizes for letter tiles elsewhere.
 body .modal .opendesk-arrange-letter {
 	display: inline-flex;
 
@@ -506,10 +509,6 @@ body.opendesk-column-on .opendesk-module-column:not(.hidden) {
 		background: var(--surface-gray-2);
 		color: var(--ink-gray-8);
 	}
-
-	&.hidden {
-		display: none;
-	}
 }
 
 // Folded and not peeking: icons only. Nothing moves: every row, the mark and the fold button keep
@@ -539,7 +538,7 @@ body.opendesk-column-on .opendesk-module-column:not(.hidden) {
 }
 
 // Below 768px Frappe hides the rail, and the column goes with it at once, before the script has
-// redrawn it (`resize.opendesk-column`). 767px is the edge of Bootstrap's md, as in dock.scss.
+// redrawn it (`resize.opendesk-beside`). 767px is the edge of Bootstrap's md, as in dock.scss.
 @media (max-width: 767px) {
 	body.opendesk-column-on .opendesk-module-column:not(.hidden) {
 		display: none;
@@ -691,10 +690,6 @@ body.opendesk-tabs-on {
 		border-radius: var(--radius);
 	}
 
-	&.hidden {
-		display: none;
-	}
-
 	.icon {
 		width: 12px;
 		height: 12px;
@@ -718,10 +713,6 @@ body.opendesk-tabs-on {
 .opendesk-tabs-more {
 	display: flex;
 	flex: 0 0 auto;
-
-	&.hidden {
-		display: none;
-	}
 }
 
 .opendesk-tabs-tools {
@@ -744,13 +735,9 @@ body.opendesk-tabs-on {
 		background: var(--surface-gray-3);
 		color: var(--ink-gray-8);
 	}
-
-	&.hidden {
-		display: none;
-	}
 }
 
-// Below 768px there is no band, at once, before the script has redrawn (`resize.opendesk-tabs`).
+// Below 768px there is no band, at once, before the script has redrawn (`resize.opendesk-beside`).
 @media (max-width: 767px) {
 	body.opendesk-tabs-on {
 		.opendesk-module-tabs:not(.hidden) {
@@ -815,15 +802,14 @@ body.opendesk-tabs-on {
 		color: var(--ink-gray-8);
 	}
 
-	&.hidden,
 	.body-sidebar-container:not(.expanded) & {
 		display: none;
 	}
 }
 
 // App Menu: the rail's mark is the app's, so the sidebar's header is its words alone, starting
-// where the rows' icons do. Scoped as the rule above that shows the mark beside a pinned rail, so
-// as to win over it.
+// where the rows' icons do. Twice: once for a floating rail, and again beside a pinned one, scoped
+// as the rule above that shows the mark there, so as to win over it.
 body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no-mark {
 	padding-left: 12px;
 

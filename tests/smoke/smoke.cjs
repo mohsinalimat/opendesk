@@ -420,7 +420,7 @@ const app_with_choice = (page) =>
         await page.locator(".opendesk-column-row").last().click();
         await settle(page);
         const browsing = await page.evaluate(
-          () => !!(frappe.app.sidebar.opendesk_column || {}).browsing
+          () => !!frappe.app.sidebar.opendesk_browsing
         );
         assert(!browsing, "the column kept the picked app after a module");
         return `${name}, Show Its Modules: ${title}, ${rows} rows, then ${landed()}`;

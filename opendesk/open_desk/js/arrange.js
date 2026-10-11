@@ -51,9 +51,19 @@
 		});
 	}
 
+	// Each open makes an editor with a dialog of its own, never shown again once closed: so the
+	// dialog is removed then, with what hangs off it (its drag-and-drop, its menus), rather than
+	// left hidden in the page. Frappe keeps dialogs stacked rather than hiding the one under a new
+	// one (`frappe.ui.open_dialogs`), so Manage Desk Apps under Manage Modules is untouched by it.
+	function removed_on_close(editor) {
+		const $wrapper = editor && editor.dialog && editor.dialog.$wrapper;
+		if ($wrapper) $wrapper.one("hidden.bs.modal", () => $wrapper.remove());
+		return editor;
+	}
+
 	opendesk.rail.manage_rail = () =>
 		load()
-			.then(({ RailEditor }) => new RailEditor())
+			.then(({ RailEditor }) => removed_on_close(new RailEditor()))
 			.catch(failed);
 
 	// `on_saved` runs once the editor has saved (Manage Desk Apps refreshes its row from it).
@@ -63,7 +73,7 @@
 				// The base class builds the dialog in its constructor, so the app it is about is
 				// handed over before that runs.
 				ModulesEditor.next = { key: app_key, on_saved };
-				return new ModulesEditor();
+				return removed_on_close(new ModulesEditor());
 			})
 			.catch(failed);
 
@@ -74,7 +84,7 @@
 		load()
 			.then(({ ModulesEditor }) => {
 				ModulesEditor.next = { draft };
-				return new ModulesEditor();
+				return removed_on_close(new ModulesEditor());
 			})
 			.catch(failed);
 
@@ -235,7 +245,11 @@
 							(entry) => entry.label.toLowerCase() === title.toLowerCase()
 						);
 						if (taken) {
-							frappe.msgprint(__("There is already an app called {0}.", [title]));
+							frappe.msgprint(
+								__("There is already an app called {0}.", [
+									frappe.utils.escape_html(title),
+								])
+							);
 							return;
 						}
 						const key = `new:${this.next_new++}`;
@@ -255,6 +269,8 @@
 						dialog.hide();
 					},
 				});
+				// Made afresh for each Add, so gone once closed rather than kept hidden in the page.
+				dialog.$wrapper.on("hidden.bs.modal", () => dialog.$wrapper.remove());
 				dialog.show();
 			}
 
@@ -322,6 +338,8 @@
 					this.view = $(event.currentTarget).data("view");
 					this.render_panes();
 				});
+				// The preview was drawn before the switch existed: drawn again, to light its button.
+				this.render_preview();
 			}
 
 			render_preview() {
@@ -420,11 +438,21 @@
 
 			open_modules(key) {
 				const entry = this.entries.get(key);
+				const label = frappe.utils.escape_html(entry.label);
 				// Shown here but not saved yet: its modules are still Other's on the server, which is
 				// what Manage Modules would edit.
 				if (entry.unlisted && entry.saved_hidden !== this.hidden.has(key)) {
 					frappe.show_alert({
-						message: __("Save first, then manage {0}'s modules.", [entry.label]),
+						message: __("Save first, then manage {0}'s modules.", [label]),
+						indicator: "orange",
+					});
+					return;
+				}
+				// Hidden, and Frappe lists it nowhere: modules given to it would leave the rail with
+				// it, for everyone (`arrange._store_app_modules` refuses as well).
+				if (entry.unlisted && this.hidden.has(key)) {
+					frappe.show_alert({
+						message: __("Show {0} and save first, then manage its modules.", [label]),
 						indicator: "orange",
 					});
 					return;
@@ -518,8 +546,12 @@
 				return hidden ? __("Put back on the rail") : __("Take off the rail");
 			}
 
+			// Back to the defaults: every app on the rail, but those Frappe lists nowhere, which
+			// are hidden until someone shows them.
 			reset() {
-				this.hidden = new Set();
+				this.hidden = new Set(
+					[...this.entries].filter(([, entry]) => entry.unlisted).map(([key]) => key)
+				);
 				this.render_panes();
 			}
 
@@ -683,7 +715,21 @@
 				}
 				if (!this.loaded) return;
 				this.sync_order();
-				this.draft.on_done(JSON.parse(this.save_args().items));
+				// The rows as `entry_for` reads them back, labels and icons kept, so reopening the
+				// draft shows what it showed.
+				this.draft.on_done(
+					this.arranged_rows((key, hidden) => {
+						const entry = this.entries.get(key);
+						return {
+							kind: entry.kind,
+							module: entry.module || null,
+							label: entry.label || null,
+							icon: entry.icon || null,
+							new: !!entry.new,
+							hidden,
+						};
+					})
+				);
 				this.dialog.hide();
 			}
 
@@ -817,6 +863,8 @@
 						if (this.place(values)) dialog.hide();
 					},
 				});
+				// Made afresh for each Add, so gone once closed rather than kept hidden in the page.
+				dialog.$wrapper.on("hidden.bs.modal", () => dialog.$wrapper.remove());
 				dialog.show();
 			}
 
@@ -845,7 +893,9 @@
 							return true;
 						}
 						frappe.show_alert({
-							message: __("{0} is already on this list", [module]),
+							message: __("{0} is already on this list", [
+								frappe.utils.escape_html(module),
+							]),
 							indicator: "orange",
 						});
 						return false;

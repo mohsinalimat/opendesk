@@ -5,7 +5,5 @@
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
 opendesk.open_desk.patches.set_module_picker
-opendesk.open_desk.patches.rename_module_picker_options
+opendesk.open_desk.patches.rename_module_picker_choices
 opendesk.open_desk.patches.set_app_pick
-opendesk.open_desk.patches.rename_dropdown_menu
-opendesk.open_desk.patches.rename_sidebar_slider

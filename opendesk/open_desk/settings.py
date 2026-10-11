@@ -122,24 +122,35 @@ def log_boot_failure(title: str) -> None:
 	frappe.log_error(title=title, defer_insert=True)
 
 
+# Each Select option, by the name the desk is told (`js/rail.js` checks these names). A value the
+# site has not set, or one not here, is the default: the first of each.
+MODULE_PICKERS = {
+	"Module Menu": "header",
+	"App Menu": "app_menu",
+	"Sliding Sidebar": "sidebar",
+	"Module Tabs": "tabs",
+	"Three Column": "column",
+	"Accordion Rail": "accordion_rail",
+	"Accordion Sidebar": "accordion_sidebar",
+}
+APP_PICKS = {
+	"Open Last Module": "enter",
+	"Open Last Sidebar Item": "enter_item",
+	"Show Its Modules": "offer",
+}
+
+
 def module_picker() -> str:
-	"""Where an app's modules are offered: "app_menu", "sidebar", "column", "tabs", "accordion_rail",
-	"accordion_sidebar", or else "header", the Module Menu and the default."""
-	doc = _settings()
-	choice = doc.get(MODULE_PICKER) if doc else None
-	return {
-		"App Menu": "app_menu",
-		"Sliding Sidebar": "sidebar",
-		"Three Column": "column",
-		"Module Tabs": "tabs",
-		"Accordion Rail": "accordion_rail",
-		"Accordion Sidebar": "accordion_sidebar",
-	}.get(choice, "header")
+	"""Where an app's modules are offered (`MODULE_PICKERS`); "header", the Module Menu, by default."""
+	return _choice(MODULE_PICKER, MODULE_PICKERS)
 
 
 def app_pick() -> str:
-	"""What picking an app does: "offer" its modules, "enter_item" it at its last sidebar item, or
-	else "enter" it at its last module, the default."""
+	"""What picking an app does (`APP_PICKS`); "enter", at its last module, by default."""
+	return _choice(APP_PICK, APP_PICKS)
+
+
+def _choice(fieldname: str, names: dict) -> str:
 	doc = _settings()
-	choice = doc.get(APP_PICK) if doc else None
-	return {"Show Its Modules": "offer", "Open Last Sidebar Item": "enter_item"}.get(choice, "enter")
+	choice = doc.get(fieldname) if doc else None
+	return names.get(choice) or next(iter(names.values()))

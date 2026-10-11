@@ -47,9 +47,15 @@ def _check():
 	frappe.has_permission(APP, "create", throw=True)
 
 
-def _rail(module_sidebars: dict | None = None) -> list[dict]:
-	"""Every app the rail could list, hidden ones included, in rail order."""
-	return nav.desk_apps(module_sidebars=module_sidebars, everything=True)
+def _rail(module_sidebars: dict | None = None, app_data: list[dict] | None = None) -> list[dict]:
+	"""Every app the rail could list, hidden ones included, in rail order.
+
+	`app_data` is Frappe's answer for this user (`frappe.boot.get_app_data`), which nothing an
+	editor saves changes: a save asks for it once and hands it to every step, rather than have
+	each step rebuild it. The rail itself is read again after each write, since it is what the
+	writes change.
+	"""
+	return nav.desk_apps(module_sidebars=module_sidebars, app_data=app_data, everything=True)
 
 
 def _parse(items) -> list[dict]:
@@ -109,7 +115,7 @@ def get_rail() -> list[dict]:
 				for mode in apps_screen.MODES
 			},
 		}
-		for app in _rail(module_sidebars)
+		for app in _rail(module_sidebars, app_data)
 	]
 
 
@@ -161,10 +167,11 @@ def save_rail(items: str | list) -> dict:
 	"""
 	_check()
 	items = _parse(items)
-	from frappe.boot import get_module_sidebars
+	from frappe.boot import get_app_data, get_module_sidebars
 
-	# Built once for the whole save: it is Frappe's, and nothing saved here changes it.
+	# Built once for the whole save: both are Frappe's, and nothing saved here changes them.
 	module_sidebars = get_module_sidebars()
+	app_data = get_app_data()
 	created = []
 	for item in items:
 		if not item.get("new"):
@@ -186,25 +193,33 @@ def save_rail(items: str | list) -> dict:
 		item["key"] = f"desk-app:{doc.name}"
 		created.append(item["key"])
 		if item.get("modules"):
-			module_sidebars = _store_app_modules(item["key"], _parse(item["modules"]))
+			# The order is written once, below, for every app: not after each new one too.
+			module_sidebars = _store_app_modules(
+				item["key"], _parse(item["modules"]), app_data, store_order=False
+			)
 
-	rail = _rail(module_sidebars)
+	rail = _rail(module_sidebars, app_data)
 	known = {app["key"] for app in rail}
-	keys = [item["key"] for item in items if item.get("key") in known]
+	# Each app once, where the editor first put it.
+	keys = list(dict.fromkeys(item["key"] for item in items if item.get("key") in known))
 	# An app the editor did not list (installed since it opened) keeps its place at the end.
 	keys += [app["key"] for app in rail if app["key"] not in keys]
-	hidden = {item["key"] for item in items if item.get("hidden")}
+	hidden = {item["key"] for item in items if item.get("hidden") and item.get("key") in known}
 	screens = {
 		item["key"]: item["apps_screen"]
 		for item in items
 		if item.get("key") in known and item.get("apps_screen") in apps_screen.MODES
 	}
-	_store_order(rail, keys, hidden, screens)
-	return {**payload(module_sidebars), "created": created}
+	_store_order(rail, keys, hidden, screens, app_data)
+	return {**payload(module_sidebars, app_data), "created": created}
 
 
 def _store_order(
-	rail: list[dict], keys: list[str], hidden: set[str], screens: dict[str, str] | None = None
+	rail: list[dict],
+	keys: list[str],
+	hidden: set[str],
+	screens: dict[str, str] | None = None,
+	app_data: list[dict] | None = None,
 ) -> None:
 	"""Write `keys` as the rail order, `hidden` as the apps off it, and `screens` as each
 	app's Apps Screen setting, onto records.
@@ -214,13 +229,16 @@ def _store_order(
 	whose modules are in Other by default a record to hold one would take them off it.
 	"""
 	screens = screens or {}
-	from frappe.boot import get_app_data
+	if app_data is None:
+		from frappe.boot import get_app_data
+
+		app_data = get_app_data()
 
 	by_key = {app["key"]: app for app in rail}
 	listed = {*nav.listed_apps(), nav.OTHER}
 	defaults = [f"app:{name}" for name in [*frappe.get_installed_apps(), nav.OTHER]]
 	anchors = positions(keys, by_key, hidden, listed, defaults)
-	meta = nav.apps_from_app_data(get_app_data())[0]
+	meta = nav.apps_from_app_data(app_data)[0]
 
 	for key in keys:
 		app = by_key[key]
@@ -338,7 +356,7 @@ def _is_placeholder(doc, default_title: str | None, hidden_by_default: bool = Fa
 		and not doc.modules
 		and not doc.roles
 		and not (doc.icon or doc.logo or doc.frontend_url or doc.frontend_label)
-		and (doc.apps_screen or "Default") == "Default"
+		and (doc.apps_screen or apps_screen.DEFAULT) == apps_screen.DEFAULT
 		and doc.title == (default_title or doc.installed_app)
 	)
 
@@ -459,25 +477,44 @@ def save_app_modules(key: str, items: str | list) -> dict:
 	from another app is simply released, back to that app, without changing the mode.
 	"""
 	_check()
-	return payload(_store_app_modules(key, _parse(items)))
+	from frappe.boot import get_app_data
+
+	app_data = get_app_data()
+	return payload(_store_app_modules(key, _parse(items), app_data), app_data)
 
 
-def _store_app_modules(key: str, items: list[dict]) -> dict:
-	"""`save_app_modules`, for Manage Desk Apps' save as well: returns the `module_sidebars` it ends on."""
-	from frappe.boot import get_module_sidebars
+def _store_app_modules(
+	key: str, items: list[dict], app_data: list[dict] | None = None, store_order: bool = True
+) -> dict:
+	"""`save_app_modules`, for Manage Desk Apps' save as well: returns the `module_sidebars` it ends on.
 
+	`store_order` keeps the rail's order as it was, which a new record could otherwise move;
+	Manage Desk Apps' save leaves it out, since it writes the whole order itself afterwards.
+	"""
+	from frappe.boot import get_app_data, get_module_sidebars
+
+	if app_data is None:
+		app_data = get_app_data()
 	module_sidebars = get_module_sidebars()
-	rail = _rail(module_sidebars)
+	rail = _rail(module_sidebars, app_data)
 	app = next((a for a in rail if a["key"] == key), None)
 	if not app:
 		frappe.throw(_("{0} is not on the rail.").format(frappe.bold(key)))
+	# An app Frappe lists nowhere, still hidden: the record saved here would be a hidden one that
+	# claims these modules, and they would leave the rail with it, for everyone.
+	if app.get("unlisted") and app.get("hidden"):
+		frappe.throw(
+			_("Show {0} on the rail and save first, then manage its modules.").format(
+				frappe.bold(app.get("title") or key)
+			)
+		)
 	target = app.get("installed_app")
 
 	if _make_new_modules(items):
 		# Frappe's answer now has them: each new module gets its own Home workspace, which
 		# is what puts it in `module_sidebars`.
 		module_sidebars = get_module_sidebars()
-		rail = _rail(module_sidebars)
+		rail = _rail(module_sidebars, app_data)
 		app = next(a for a in rail if a["key"] == key)
 
 	# The order the rail has now, held before a new record could move this app.
@@ -486,8 +523,10 @@ def _store_app_modules(key: str, items: list[dict]) -> dict:
 
 	visible = {sidebar.get("module") or shell for shell, sidebar in module_sidebars.items()}
 	owner = _owner_of(module_sidebars)
-	old_rows = frappe.get_doc(APP, app["record"]).modules if app.get("record") else []
-	dock_hidden = set((nav.shipped_docks().get(target) or {}).get("hidden") or ())
+	# Loaded once: its rows are read here, and the same document is saved below.
+	doc = _record_for(app)
+	old_rows = list(doc.modules)
+	dock_hidden = set((nav._site_inputs()["docks"].get(target) or {}).get("hidden") or ())
 	dock_hidden = {
 		sidebar.get("module") or shell for shell, sidebar in module_sidebars.items() if shell in dock_hidden
 	}
@@ -517,13 +556,13 @@ def _store_app_modules(key: str, items: list[dict]) -> dict:
 
 	rows = _keep_unseen(rows, old_rows, visible)
 
-	doc = _record_for(app)
 	if target:
 		doc.module_mode = nav.REPLACE if taken_off else nav.ADD
 	doc.set("modules", rows)
 	doc.save()
 
-	_store_order(_rail(module_sidebars), order, hidden_apps)
+	if store_order:
+		_store_order(_rail(module_sidebars, app_data), order, hidden_apps, app_data=app_data)
 	return module_sidebars
 
 
@@ -556,7 +595,7 @@ def _make_new_modules(items: list[dict]) -> list[str]:
 
 def _owner_of(module_sidebars: dict):
 	"""A function from a module to the installed app it belongs to by default, or Other."""
-	module_apps = nav.module_apps()
+	module_apps = nav._site_inputs()["module_apps"]
 	installed = set(frappe.get_installed_apps())
 	hosts = nav.app_hosts()
 	app_by_module = {}
@@ -598,7 +637,7 @@ def _keep_unseen(rows: list[dict], old_rows: list, visible: set[str]) -> list[di
 # ------------------------------------------------------------------------------------
 
 
-def payload(module_sidebars: dict | None = None) -> dict:
+def payload(module_sidebars: dict | None = None, app_data: list[dict] | None = None) -> dict:
 	"""The rail and the Apps screen, as the boot would carry them now.
 
 	So an editor's save is redrawn in place: `desk_apps`, `app_data` as the
@@ -611,7 +650,10 @@ def payload(module_sidebars: dict | None = None) -> dict:
 
 	if module_sidebars is None:
 		module_sidebars = get_module_sidebars()
-	app_data = get_app_data()
+	# The save's own copy, if it has one, which this is the last to read: the Apps screen's
+	# arrangement below rewrites it in place.
+	if app_data is None:
+		app_data = get_app_data()
 	# Read before the Apps screen rewrites `app_data`, as in the boot.
 	rail = nav.desk_apps(module_sidebars=module_sidebars, app_data=app_data)
 	# The Apps screen as the boot would arrange it, or the desk's copy would be Frappe's.

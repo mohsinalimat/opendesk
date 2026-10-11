@@ -9,7 +9,7 @@
 //   - the column lists the apps `opendesk.open_desk.desk_apps` resolves (the
 //     Desk Apps, then every installed app for the modules those leave unclaimed), the one
 //     you are in lit, and its mark at the top is the site's, leading to the Apps screen;
-//   - picking an app offers its modules, in one of six ways Open Desk Settings' "Module
+//   - picking an app offers its modules, in one of seven ways Open Desk Settings' "Module
 //     Picker" chooses between (below). Its tooltip is just its name;
 //   - the header menu over the sidebar lists the open app's modules, under the Categories and
 //     Spacers its Desk App sets, in place of Frappe's switcher rows;
@@ -232,7 +232,15 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		$("body").removeClass(
 			"opendesk-rail-on opendesk-rail-tools-on opendesk-tabs-on opendesk-modules-beside"
 		);
+		const dock = frappe.app && frappe.app.sidebar && frappe.app.sidebar.dock;
+		if (dock) {
+			(dock.opendesk_tool_tips || []).forEach((tip) => tip.destroy());
+			dock.opendesk_tool_tips = [];
+			if (dock.$items) destroy_tips(dock.$items.find(".opendesk-rail-group"));
+		}
 		$(".opendesk-rail-tools, .opendesk-module-tabs, .opendesk-edit-sidebar").remove();
+		// The line the rail added under the header's title: Frappe's header has none.
+		$(".sidebar-header .header-subtitle").remove();
 		$(".opendesk-header-plain, .opendesk-header-hidden").removeClass(
 			"opendesk-header-plain opendesk-header-hidden"
 		);
@@ -257,11 +265,17 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				if (sidebar.dock) {
 					// The rail's mark leads to the Apps screen again, as Frappe's link.
 					if (sidebar.dock.opendesk_app_menu) {
-						sidebar.dock.opendesk_app_menu.destroy();
-						sidebar.dock.$header
+						const own = sidebar.dock;
+						own.opendesk_app_menu.destroy();
+						own.$header
 							.off("keydown")
 							.removeAttr("role tabindex")
-							.attr("href", "/desk");
+							.attr("href", "/desk")
+							// Frappe's own click on its mark, which the menu took off.
+							.on("click", () => own.close());
+						// Frappe names its mark only when it has no tooltip yet.
+						if (own.header_tooltip) own.header_tooltip.destroy();
+						own.header_tooltip = null;
 					}
 					sidebar.dock.opendesk_app_menu = null;
 					sidebar.dock.rendered = null;
@@ -310,6 +324,29 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		return (app.modules || []).filter((entry) => frappe.boot.module_sidebars[entry.shell]);
 	}
 
+	// An app's modules as every picker lists them, in order. A Category starts a group under its
+	// name, and a Spacer starts one without; pickers with room for a name draw `category` as a
+	// heading and `spacer` as a gap, the others a rule wherever `starts_group`.
+	function module_layout(app) {
+		return modules_of(app).map((entry, index) => ({
+			entry,
+			shell: entry.shell,
+			label: __(entry.label),
+			icon: entry.icon || frappe.get_module_icon(entry.shell) || "folder",
+			category: entry.category ? __(entry.category) : null,
+			spacer: !entry.category && !!entry.space_before && index > 0,
+			starts_group: index > 0 && (!!entry.category || !!entry.space_before),
+		}));
+	}
+
+	// Opening a module from a picker, and what Frappe's desk would do should that throw.
+	function module_opener(sidebar, shell, motion = "fade") {
+		return guarded(
+			() => open_module(sidebar, shell, motion),
+			() => sidebar.open_module(shell)
+		);
+	}
+
 	// What an app's module list offers: its frontend, then its modules.
 	function choice_count(app) {
 		return modules_of(app).length + (app.frontend ? 1 : 0);
@@ -337,8 +374,10 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	}
 
 	// `open_module` builds the module's sidebar before it routes, so the rows are there to move.
+	// Another module's build puts the Sliding Sidebar's list away as well (`setup`), so only the
+	// same module needs it put away first -- which is a build of its own.
 	function open_module(sidebar, shell, motion) {
-		leave_module_list(sidebar);
+		if (shell === sidebar.current_module) leave_module_list(sidebar);
 		// Whatever app was on show is put away by the page that opens, not drawn back first.
 		sidebar.opendesk_browsing = null;
 		sidebar.open_module(shell);
@@ -356,12 +395,19 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		// transition twice in a row still plays.
 		void $rows.get(0).offsetWidth;
 		$rows.addClass(`opendesk-enter-${motion}`);
-		$rows.one("animationend", () => $rows.removeClass(`opendesk-enter-${motion}`));
+		// One listener, replaced each time: under reduced motion the animation never plays and
+		// never ends, and a row's own animation ending must not end the container's.
+		$rows.off("animationend.opendesk").on("animationend.opendesk", (event) => {
+			if (event.target !== $rows.get(0)) return;
+			$rows.off("animationend.opendesk").removeClass(`opendesk-enter-${motion}`);
+		});
 	}
 
 	function offer_modules(sidebar, app) {
 		if (column_shown(sidebar)) browse_column(sidebar, app);
 		else if (modules_beside(sidebar)) browse_app(sidebar, app);
+		// Accordion Sidebar on a module no rail app holds: the picked app's headings all the same.
+		else if (sidebar_accordion) browse_app(sidebar, app);
 		else if (menu_picker) open_picker(sidebar, app);
 		else show_module_list(sidebar, app);
 	}
@@ -380,24 +426,28 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	}
 
 	// The column or the band, whichever this picker draws, after anything that may show or hide
-	// it; and the module on screen noted as the one its app was left in. Says whether the modules
-	// moved between the header's menu and a place of their own, which changes the header.
+	// it; and the module on screen noted as the one its app was left in. When the modules move
+	// between the header's menu and a place of their own -- the sidebar or the rail showing late,
+	// on a page that loads after the route has changed, or the window crossing 768px -- the header
+	// changes with them, so it is redrawn here. (`opendesk-modules-beside` on the body is for the
+	// smoke test, `tests/smoke`, which reads it.)
 	function draw_beside(sidebar) {
 		if (column_mode) draw_column(sidebar);
 		else if (tabs_mode) draw_tabs(sidebar);
 		note_module(sidebar);
 		const beside = modules_beside(sidebar);
 		$("body").toggleClass("opendesk-modules-beside", beside);
-		const moved = sidebar.opendesk_beside !== undefined && sidebar.opendesk_beside !== beside;
+		const moved = sidebar.opendesk_beside !== beside;
 		sidebar.opendesk_beside = beside;
-		return moved;
+		if (moved) sidebar.refresh_header();
 	}
 
 	// Show Its Modules, in the band, the rail's tray or the sidebar's bars: another app's modules
 	// on show over the page you are on, the rail lighting that app, until a module is picked, the
-	// page changes, or Escape or a click outside the band, the rail and the sidebar puts them away.
-	// (The module column keeps its own, `browse_column`; the Module Menu and the Sliding Sidebar
-	// theirs.)
+	// page changes, or Escape or a click outside the column, the band, the rail and the sidebar puts
+	// them away.
+	// (The module column shows it too, opening over the sidebar while folded, `browse_column`; the
+	// Module Menu and the Sliding Sidebar have their own.)
 	function browsing_app(sidebar) {
 		return (sidebar.opendesk_browsing && sidebar.opendesk_browsing.app) || null;
 	}
@@ -422,6 +472,11 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	function redraw_browsing(sidebar, leaving) {
 		if (app_menu) refresh_rail(sidebar);
+		if (column_mode && sidebar.opendesk_column) {
+			// A folded column opened over the sidebar to show the app goes back with it.
+			if (leaving) sidebar.opendesk_column.peek = false;
+			draw_column(sidebar);
+		}
 		if (tabs_mode) draw_tabs(sidebar);
 		if (rail_accordion) arrange_rail_groups(sidebar, false);
 		if (sidebar_accordion) {
@@ -447,7 +502,9 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				const current = sidebar();
 				if (!current || !current.opendesk_browsing) return;
 				if (
-					$(event.target).closest(".opendesk-module-tabs, .dock, .body-sidebar").length
+					$(event.target).closest(
+						".opendesk-module-tabs, .opendesk-module-column, .dock, .body-sidebar"
+					).length
 				) {
 					return;
 				}
@@ -463,6 +520,12 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				}
 			})
 		);
+	}
+
+	// What decides whether the column, the band or the rail shows: the sidebar, and the rail.
+	function shown_state(sidebar) {
+		const shown = !!sidebar.wrapper && sidebar.wrapper.css("display") !== "none";
+		return `${shown}|${!!(sidebar.dock && sidebar.dock.enabled)}`;
 	}
 
 	// Whether the rail can be reached: drawn beside the page, or floating where the pointer brings
@@ -532,8 +595,6 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			folded: saved_fold(),
 			// Open over the sidebar while folded.
 			peek: false,
-			// Another app, picked on the rail, and the route it was picked on.
-			browsing: null,
 			timer: null,
 		};
 		sidebar.opendesk_column = column;
@@ -583,7 +644,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		$(document).on(
 			"pointerdown.opendesk-column",
 			guarded((event) => {
-				if (!column.peek && !column.browsing) return;
+				if (!column.peek) return;
 				if ($(event.target).closest(".opendesk-module-column, .dock").length) return;
 				leave_column(sidebar);
 			})
@@ -591,8 +652,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		$(document).on(
 			"keydown.opendesk-column",
 			guarded((event) => {
-				if (event.key === "Escape" && (column.peek || column.browsing))
-					leave_column(sidebar);
+				if (event.key === "Escape" && column.peek) leave_column(sidebar);
 			})
 		);
 		return column;
@@ -606,37 +666,33 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		draw_column(sidebar);
 	}
 
-	// Back to the open module's app, folded again if it was.
+	// Back to the open module's app, folded again if it was: a peek put away, and with it any
+	// app the column was showing (`leave_browsing`).
 	function leave_column(sidebar) {
 		const column = sidebar.opendesk_column;
 		if (!column) return;
 		clearTimeout(column.timer);
-		const browsed = !!column.browsing;
 		column.peek = false;
-		column.browsing = null;
-		draw_column(sidebar);
-		if (browsed) light_rail(sidebar);
+		if (sidebar.opendesk_browsing) leave_browsing(sidebar);
+		else draw_column(sidebar);
 	}
 
-	// The app whose modules the column shows: one picked on the rail, else the open module's.
+	// The app whose modules the column shows: one on show (`browse_app`), else the open module's.
 	function column_app(sidebar) {
-		const column = sidebar.opendesk_column;
-		return (
-			(column && column.browsing && column.browsing.app) ||
-			rail_app_of(sidebar.current_module)
-		);
+		return browsing_app(sidebar) || rail_app_of(sidebar.current_module);
 	}
 
+	// An app picked on the rail, shown in the column as in the band or the accordions, and a
+	// folded column opened over the sidebar to show it -- the open app's too, picked again.
 	function browse_column(sidebar, app) {
 		const column = column_of(sidebar);
 		if (!column) return;
 		// A peek's pending close, from the pointer leaving the column for the rail, is overtaken.
 		clearTimeout(column.timer);
-		const open = rail_app_of(sidebar.current_module);
-		column.browsing = app === open ? null : { app, route: frappe.get_route_str() };
+		browse_app(sidebar, app);
+		// After, since putting away an app on show folds the column back.
 		if (column.folded) column.peek = true;
 		draw_column(sidebar);
-		light_rail(sidebar);
 	}
 
 	function draw_column(sidebar) {
@@ -676,22 +732,19 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			});
 			$rows.append('<div class="opendesk-column-space"></div>');
 		}
-		(app ? modules_of(app) : []).forEach((entry, index) => {
-			if (entry.category) {
-				$('<div class="opendesk-column-category"></div>')
-					.text(__(entry.category))
-					.appendTo($rows);
-			} else if (entry.space_before && index > 0) {
+		(app ? module_layout(app) : []).forEach(({ entry, label, icon, category, spacer }) => {
+			if (category) {
+				$('<div class="opendesk-column-category"></div>').text(category).appendTo($rows);
+			} else if (spacer) {
 				$rows.append('<div class="opendesk-column-space"></div>');
 			}
 			row(
-				__(entry.label),
-				entry.icon || frappe.get_module_icon(entry.shell) || "folder",
+				label,
+				icon,
 				entry.shell === sidebar.current_module,
 				() => {
 					column.peek = false;
-					column.browsing = null;
-					sidebar.open_module(entry.shell);
+					open_module(sidebar, entry.shell, "fade");
 					draw_column(sidebar);
 				},
 				() => sidebar.open_module(entry.shell)
@@ -782,12 +835,25 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// with the sidebar count, not the one Frappe sets behind the Apps screen.
 	const LAST_MODULES = "opendesk-last-modules";
 
-	function last_modules() {
+	// Both read once and kept, as they are asked on every redraw; dropped when another tab of
+	// this site writes them, so its picks are not written over.
+	let last_modules_read = null;
+	let last_items_read = null;
+	window.addEventListener("storage", (event) => {
+		if (event.key === LAST_MODULES) last_modules_read = null;
+		if (event.key === LAST_ITEMS) last_items_read = null;
+	});
+
+	function stored_map(key) {
 		try {
-			return JSON.parse(localStorage.getItem(LAST_MODULES) || "{}") || {};
+			return JSON.parse(localStorage.getItem(key) || "{}") || {};
 		} catch (e) {
 			return {};
 		}
+	}
+
+	function last_modules() {
+		return (last_modules_read = last_modules_read || stored_map(LAST_MODULES));
 	}
 
 	function remember_module(app, shell) {
@@ -822,11 +888,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	const LAST_ITEMS = "opendesk-last-items";
 
 	function last_items() {
-		try {
-			return JSON.parse(localStorage.getItem(LAST_ITEMS) || "{}") || {};
-		} catch (e) {
-			return {};
-		}
+		return (last_items_read = last_items_read || stored_map(LAST_ITEMS));
 	}
 
 	function note_item(sidebar) {
@@ -871,7 +933,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			open_module(sidebar, return_module(app), "fade");
 			return;
 		}
-		leave_module_list(sidebar);
+		if (item.shell === sidebar.current_module) leave_module_list(sidebar);
 		sidebar.opendesk_browsing = null;
 		// The module first, so the page lands in that module's sidebar, then the page, as Frappe's
 		// router follows a link to it: its query as route options.
@@ -902,17 +964,12 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		tabs.$el.find(".opendesk-tabs-mark").html(app_mark(app));
 		tabs.$el.find(".opendesk-tabs-title").text(__(app.title));
 
-		modules_of(app).forEach((entry, index) => {
-			const label = __(entry.label);
+		module_layout(app).forEach(({ entry, label, starts_group }) => {
 			// While another app is on show, none of its tabs is the page you are on.
 			const active = !browsing && entry.shell === sidebar.current_module;
-			const pick = guarded(
-				() => open_module(sidebar, entry.shell, "fade"),
-				() => sidebar.open_module(entry.shell)
-			);
-			// A Category or a Spacer starts a group: a rule before its first tab, and under More
-			// a heading or a divider.
-			const starts_group = index > 0 && (!!entry.category || !!entry.space_before);
+			const pick = module_opener(sidebar, entry.shell);
+			// A group starts with a rule before its first tab, and under More with a heading or
+			// a divider.
 			const $tab = $(`<button class="btn-reset opendesk-tab" type="button">
 				<span class="opendesk-tab-label"></span>
 			</button>`)
@@ -951,21 +1008,32 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		tabs.$more.addClass("hidden");
 		const row = tabs.$row.get(0);
 		const overflows = () => row.scrollWidth > row.clientWidth + 1;
+		const $button = tabs.$more.find(".opendesk-tabs-more-button");
+		const label = (tab) =>
+			$button
+				.toggleClass("active", !!tab)
+				.find(".opendesk-tab-label")
+				.text(tab ? tab.label : __("More"));
+		label(null);
 		const hidden = [];
+		let last = entries.length - 1;
+		const hide_while_over = () => {
+			for (; last > 0 && overflows(); last--) {
+				entries[last].$tab.addClass("hidden");
+				hidden.unshift(entries[last]);
+			}
+		};
 		if (overflows()) {
 			tabs.$more.removeClass("hidden");
-			for (let i = entries.length - 1; i > 0 && overflows(); i--) {
-				entries[i].$tab.addClass("hidden");
-				hidden.unshift(entries[i]);
+			hide_while_over();
+			// More takes the open module's name when that is among them, which widens it: the
+			// tabs are measured again beside the wider button, and another may go under it.
+			const open = hidden.find((tab) => tab.active);
+			if (open) {
+				label(open);
+				hide_while_over();
 			}
 		}
-
-		const open = hidden.find((tab) => tab.active);
-		tabs.$more
-			.find(".opendesk-tabs-more-button")
-			.toggleClass("active", !!open)
-			.find(".opendesk-tab-label")
-			.text(open ? open.label : __("More"));
 		const $menu = tabs.$more.find(".opendesk-tabs-menu").empty();
 		hidden.forEach((tab, n) => {
 			if (tab.entry.category) {
@@ -1026,14 +1094,14 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			});
 			rule();
 		}
-		modules_of(app).forEach((entry, index) => {
-			if (index > 0 && (entry.category || entry.space_before)) rule();
+		module_layout(app).forEach(({ shell, label, icon, starts_group }) => {
+			if (starts_group) rule();
 			tile(
-				__(entry.label),
-				entry.icon || frappe.get_module_icon(entry.shell) || "folder",
-				!browsing && entry.shell === sidebar.current_module,
-				() => open_module(sidebar, entry.shell, "fade"),
-				() => sidebar.open_module(entry.shell)
+				label,
+				icon,
+				!browsing && shell === sidebar.current_module,
+				() => open_module(sidebar, shell, "fade"),
+				() => sidebar.open_module(shell)
 			);
 		});
 	}
@@ -1069,7 +1137,11 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				guarded((event) => {
 					if (event.key !== "Enter" && event.key !== " ") return;
 					event.preventDefault();
-					dock.opendesk_app_menu && dock.opendesk_app_menu.toggle();
+					// As Frappe's own menus open from the keyboard: at once, on the first row.
+					const menu = dock.opendesk_app_menu;
+					if (!menu) return;
+					if (menu.is_open) menu.close("owner");
+					else menu.open({ motion: "instant", focus: "first" });
 				})
 			);
 		dock.opendesk_app_menu = new frappe.ui.Dropdown({
@@ -1174,16 +1246,14 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			});
 			$inner.append('<div class="opendesk-rail-group-rule"></div>');
 		}
-		modules_of(app).forEach((entry, index) => {
-			if (index > 0 && (entry.category || entry.space_before)) {
-				$inner.append('<div class="opendesk-rail-group-rule"></div>');
-			}
+		module_layout(app).forEach(({ shell, label, icon, starts_group }) => {
+			if (starts_group) $inner.append('<div class="opendesk-rail-group-rule"></div>');
 			tile(
-				__(entry.label),
-				entry.icon || frappe.get_module_icon(entry.shell) || "folder",
-				entry.shell === sidebar.current_module,
-				() => open_module(sidebar, entry.shell, "fade"),
-				() => sidebar.open_module(entry.shell)
+				label,
+				icon,
+				shell === sidebar.current_module,
+				() => open_module(sidebar, shell, "fade"),
+				() => sidebar.open_module(shell)
 			);
 		});
 		$group.data("tips", tips);
@@ -1268,7 +1338,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			sidebar_accordion &&
 			!!sidebar.wrapper &&
 			sidebar.wrapper.css("display") !== "none" &&
-			!!rail_app_of(sidebar.current_module)
+			!!(browsing_app(sidebar) || rail_app_of(sidebar.current_module))
 		);
 	}
 
@@ -1302,30 +1372,21 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				window.location.href = app.frontend.url;
 			});
 		}
-		modules_of(app).forEach((entry, index) => {
+		module_layout(app).forEach(({ entry, label, icon, starts_group }) => {
 			const open = entry.shell === sidebar.current_module;
-			const $heading = accordion_heading(
-				$container,
-				__(entry.label),
-				entry.icon || frappe.get_module_icon(entry.shell) || "folder",
-				open,
-				() => {
-					if (entry.shell !== sidebar.current_module) {
-						open_module(sidebar, entry.shell);
-						return;
-					}
-					const folded = !$content.hasClass(ACCORDION_FOLDED);
-					$content.toggleClass(ACCORDION_FOLDED, folded);
-					$heading
-						.toggleClass("opendesk-accordion-open", !folded)
-						.find(".item-anchor")
-						.attr("aria-expanded", folded ? "false" : "true");
+			const $heading = accordion_heading($container, label, icon, open, () => {
+				if (entry.shell !== sidebar.current_module) {
+					open_module(sidebar, entry.shell);
+					return;
 				}
-			);
-			$heading.toggleClass(
-				"opendesk-accordion-group",
-				index > 0 && (!!entry.category || !!entry.space_before)
-			);
+				const folded = !$content.hasClass(ACCORDION_FOLDED);
+				$content.toggleClass(ACCORDION_FOLDED, folded);
+				$heading
+					.toggleClass("opendesk-accordion-open", !folded)
+					.find(".item-anchor")
+					.attr("aria-expanded", folded ? "false" : "true");
+			});
+			$heading.toggleClass("opendesk-accordion-group", starts_group);
 			if (moving && entry.shell === leaving.shell) $leaving_heading = $heading;
 			if (!open) return;
 			$heading.addClass("opendesk-accordion-open");
@@ -1383,26 +1444,17 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		const app = browsing_app(sidebar);
 		const $container = sidebar.$items_container;
 		if (!app || !$container || !$container.length) return;
-		// Beside a pinned rail a collapsed sidebar is hidden altogether, so it is opened, as
-		// Frappe opens it for a Dock entry.
-		if (!sidebar.sidebar_expanded && typeof sidebar.open === "function") sidebar.open();
+		open_sidebar(sidebar);
 		sidebar.empty();
 		if (app.frontend) {
 			accordion_heading($container, app.frontend.label, "external-link", null, () => {
 				window.location.href = app.frontend.url;
 			});
 		}
-		modules_of(app).forEach((entry, index) => {
-			accordion_heading(
-				$container,
-				__(entry.label),
-				entry.icon || frappe.get_module_icon(entry.shell) || "folder",
-				false,
-				() => open_module(sidebar, entry.shell)
-			).toggleClass(
-				"opendesk-accordion-group",
-				index > 0 && (!!entry.category || !!entry.space_before)
-			);
+		module_layout(app).forEach(({ shell, label, icon, starts_group }) => {
+			accordion_heading($container, label, icon, false, () =>
+				open_module(sidebar, shell)
+			).toggleClass("opendesk-accordion-group", starts_group);
 		});
 		animate_rows(sidebar, "fade");
 	}
@@ -1420,9 +1472,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// Module Menu: the header's own menu, opened on `app`'s modules rather than the open
 	// module's app. The rail lights `app` while it is up, and the open app again once it closes.
 	function open_picker(sidebar, app) {
-		// Beside a pinned rail a collapsed sidebar is hidden altogether, header and all, so it is
-		// opened, as Frappe opens it for a Dock entry.
-		if (!sidebar.sidebar_expanded && typeof sidebar.open === "function") sidebar.open();
+		open_sidebar(sidebar);
 		const header = sidebar.sidebar_header;
 		if (header && !header.menu && typeof header.setup_menu === "function") header.setup_menu();
 		const menu = header && header.menu;
@@ -1467,25 +1517,30 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		menu.opendesk_watched = true;
 	}
 
-	// Sliding Sidebar: the list is drawn into the sidebar Frappe has built for the page, and remembers the route
-	// it was opened on: once the route moves on, the list is put away.
-	function show_module_list(sidebar, app) {
-		// Beside a pinned rail a collapsed sidebar is hidden altogether, so it is opened, as
-		// Frappe opens it for a Dock entry.
-		if (!sidebar.sidebar_expanded && typeof sidebar.open === "function") sidebar.open();
+	// Sliding Sidebar: the list is drawn into the sidebar Frappe has built for the page, and
+	// remembers the route it was opened on: once the route moves on, the list is put away. `quiet`
+	// is a redraw no one clicked for (an editor's save), which does not slide.
+	function show_module_list(sidebar, app, { quiet = false } = {}) {
+		open_sidebar(sidebar);
 		sidebar.opendesk_module_list = { app, route: frappe.get_route_str() };
 		draw_module_rows(sidebar, app);
 		draw_list_header(sidebar);
 		draw_edit_button(sidebar);
-		refresh_rail(sidebar);
-		animate_rows(sidebar, "back");
+		light_rail(sidebar);
+		if (!quiet) animate_rows(sidebar, "back");
 	}
 
 	function leave_module_list(sidebar) {
 		if (!sidebar.opendesk_module_list) return;
 		sidebar.opendesk_module_list = null;
 		if (sidebar.current_module) sidebar.setup(sidebar.current_module);
-		refresh_rail(sidebar);
+		light_rail(sidebar);
+	}
+
+	// Beside a pinned rail a collapsed sidebar is hidden altogether, header and all, so a picker
+	// that shows something in it opens it first, as Frappe opens it for a Dock entry.
+	function open_sidebar(sidebar) {
+		if (!sidebar.sidebar_expanded && typeof sidebar.open === "function") sidebar.open();
 	}
 
 	function refresh_rail(sidebar) {
@@ -1497,10 +1552,8 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// The app the rail lights: the one a picker or the column is showing, else the open module's.
 	function lit_app(sidebar) {
 		const list = sidebar.opendesk_module_list;
-		const browsing = sidebar.opendesk_column && sidebar.opendesk_column.browsing;
 		return (
 			sidebar.opendesk_picker_app ||
-			(browsing && browsing.app) ||
 			browsing_app(sidebar) ||
 			(list ? list.app : rail_app_of(sidebar.current_module))
 		);
@@ -1569,8 +1622,8 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			sidebar.add_item($container, { type: "Spacer", label: "" });
 		}
 
-		modules_of(app).forEach((entry, index) => {
-			if (entry.category) {
+		module_layout(app).forEach(({ entry, label, icon, category, spacer }) => {
+			if (category) {
 				$(`<div class="sidebar-item-container opendesk-module-category">
 					<div class="standard-sidebar-item">
 						<div class="item-anchor section-break">
@@ -1579,15 +1632,15 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 					</div>
 				</div>`)
 					.find(".sidebar-item-label")
-					.text(__(entry.category))
+					.text(category)
 					.end()
 					.appendTo($container);
-			} else if (entry.space_before && index > 0) {
+			} else if (spacer) {
 				sidebar.add_item($container, { type: "Spacer", label: "" });
 			}
 			add_row({
-				label: frappe.utils.escape_html(__(entry.label)),
-				icon: entry.icon || frappe.get_module_icon(entry.shell) || "folder",
+				label: frappe.utils.escape_html(label),
+				icon,
 				onClick: guarded(
 					() => open_module(sidebar, entry.shell, "forward"),
 					() => sidebar.open_module(entry.shell)
@@ -1614,7 +1667,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		const header = sidebar.sidebar_header;
 		const list = sidebar.opendesk_module_list;
 		if (!header || !list) return;
-		header.$header_title.text(list.app.title);
+		header.$header_title.text(__(list.app.title));
 		header.$header_logo.html(app_mark(list.app));
 		const count = modules_of(list.app).length;
 		set_subtitle(header, count === 1 ? __("1 module") : __("{0} modules", [count]));
@@ -1667,7 +1720,18 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				<span class="dock-item-icon">${frappe.utils.icon(icon, "md")}</span>
 				${suffix}
 			</button>`).appendTo($tools);
-			this.name_tile($button, label);
+			// Named as `Dock.name_tile` names a tile, but kept apart from the Dock's own tooltips,
+			// which every redraw of the rail destroys: these tiles are made once.
+			this.opendesk_tool_tips = this.opendesk_tool_tips || [];
+			this.opendesk_tool_tips.push(
+				new frappe.ui.Tooltip($button[0], {
+					text: label,
+					side: "right",
+					delay: 0,
+					offset: 10,
+					class: "es-tooltip--plain",
+				})
+			);
 			return $button;
 		};
 
@@ -1737,26 +1801,35 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// The user menu: Manage Dock out, Manage Desk Apps in, where it was (`public/js/user_menu_rows.js`).
 	// Manage Modules opens from the module list's header (`draw_list_header`), or is the header
 	// menu's last row with the Module Menu picker (`picker_groups`).
+	// Both rows stay in the menu, which is built once: Manage Desk Apps while the rail is on,
+	// Frappe's own row again once it has given up.
 	const manage_rail = {
 		name: "opendesk-manage-desk-apps",
 		label: __("Manage Desk Apps"),
 		icon: "monitor",
-		condition: can_manage,
+		condition: () => !broken && can_manage(),
 		onclick: () => opendesk.rail.manage_rail(),
 	};
 	opendesk.user_menu.add((groups) =>
-		broken
-			? groups
-			: groups.map((group) =>
-					group && Array.isArray(group.options)
-						? {
-								...group,
-								options: group.options.map((row) =>
-									row && row.name === "workspace-selector" ? manage_rail : row
-								),
-						  }
-						: group
-			  )
+		groups.map((group) =>
+			group && Array.isArray(group.options)
+				? {
+						...group,
+						options: group.options.flatMap((row) =>
+							row && row.name === "workspace-selector"
+								? [
+										manage_rail,
+										{
+											...row,
+											condition: () =>
+												broken && (!row.condition || row.condition()),
+										},
+								  ]
+								: [row]
+						),
+				  }
+				: group
+		)
 	);
 
 	// After an editor saves: the rail, each module's rail app, and the app entries Frappe's header
@@ -1778,23 +1851,27 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		if (sidebar.opendesk_picker_app) {
 			sidebar.opendesk_picker_app = fresh(sidebar.opendesk_picker_app);
 		}
-		const column = sidebar.opendesk_column;
-		if (column && column.browsing) {
-			const app = fresh(column.browsing.app);
-			column.browsing = app ? { ...column.browsing, app } : null;
-		}
 		leave_browsing(sidebar);
 		const list = sidebar.opendesk_module_list;
 		if (list) {
 			const app = fresh(list.app);
-			app ? show_module_list(sidebar, app) : leave_module_list(sidebar);
+			app ? show_module_list(sidebar, app, { quiet: true }) : leave_module_list(sidebar);
+		} else if ((sidebar_accordion || picker === "sidebar") && sidebar.current_module) {
+			// The modules' headings, and the back row's app, are drawn into the sidebar itself.
+			sidebar.setup(sidebar.current_module);
 		} else {
 			sidebar.refresh_header();
 		}
 		// Drawn afresh: the apps' names and marks may have changed, which a redraw in place keeps.
 		if (sidebar.dock && sidebar.dock.$items) clear_rail(sidebar.dock);
 		refresh_rail(sidebar);
-	});
+	}, adopt_saved);
+
+	// After the rail has given up, a save still reaches the boot, as without the rail.
+	function adopt_saved({ app_data, module_sidebars }) {
+		if (module_sidebars) frappe.boot.module_sidebars = module_sidebars;
+		opendesk.boot_arrangement.adopt(app_data);
+	}
 
 	// Every page can switch apps, so the rail is drawn wherever the page lets Frappe draw a Dock,
 	// whether or not the app on screen ships one.
@@ -1901,13 +1978,19 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// header menu and come back, the header with it, since it names the app only where they do not.
 	{
 		let resize_timer = null;
+		let was_mobile = frappe.is_mobile();
 		$(window).on("resize.opendesk-beside", () => {
 			clearTimeout(resize_timer);
 			resize_timer = setTimeout(
 				guarded(() => {
 					const sidebar = frappe.app && frappe.app.sidebar;
 					if (!sidebar || !sidebar.wrapper) return;
-					if (draw_beside(sidebar)) sidebar.refresh_header();
+					draw_beside(sidebar);
+					// Crossing 768px changes the rail's reach, and with it whatever the header's
+					// menu holds (the Sliding Sidebar's plain header, say), modules moving or not.
+					const mobile = frappe.is_mobile();
+					if (mobile !== was_mobile) sidebar.refresh_header();
+					was_mobile = mobile;
 				}),
 				150
 			);
@@ -1915,8 +1998,11 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		["apply_page_visibility", "toggle"].forEach((method) => {
 			if (typeof Sidebar.prototype[method] !== "function") return;
 			patch(Sidebar.prototype, method, function (original) {
+				const before = shown_state(this);
 				const result = original();
-				draw_beside(this);
+				// Frappe's own `refresh_dock` redraws through `render_entries` when the rail
+				// changed; drawn again here only when what shows the column or band did.
+				if (shown_state(this) !== before) draw_beside(this);
 				return result;
 			});
 		});
@@ -1962,18 +2048,14 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// where the list was opened, the list is put away here.
 	patch(Sidebar.prototype, "set_workspace_sidebar", function (set_workspace_sidebar) {
 		const result = set_workspace_sidebar();
-		// Frappe has lit the row for the page: noted as the one its app was left on.
-		note_item(this);
 		const list = this.opendesk_module_list;
 		if (list && frappe.get_route_str() !== list.route) leave_module_list(this);
-		// The same for an app the module column was showing.
-		const column = this.opendesk_column;
-		if (column && column.browsing && frappe.get_route_str() !== column.browsing.route) {
-			leave_column(this);
-		}
-		// And for one the band, the rail or the sidebar was showing.
+		// The same for an app the column, the band, the rail or the sidebar was showing.
 		const browsing = this.opendesk_browsing;
 		if (browsing && frappe.get_route_str() !== browsing.route) leave_browsing(this);
+		// Frappe has lit the row for the page: noted as the one its app was left on -- once the
+		// module's own rows are back, since over a module list or another app's modules no row is.
+		if (!this.opendesk_module_list && !this.opendesk_browsing) note_item(this);
 		// A tile on the Apps screen was picked: its app's module list, now there is a sidebar.
 		if (from_apps_screen) {
 			const app = from_apps_screen;
@@ -1994,9 +2076,9 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// `/desk/...`. So the pick is also kept in this tab's session storage for a few seconds, and
 	// the page it lands on takes it from there.
 	//
-	// With Open Last Module a tile does what picking the app on the rail does: it opens the module
-	// last open in the app (`return_module`) rather than the landing page, unless the click is one
-	// that opens the link elsewhere (a new tab, say).
+	// With Open Last Module or Open Last Sidebar Item a tile does what picking the app on the rail
+	// does (`enter_app`) rather than open the landing page, unless the click is one that opens the
+	// link elsewhere (a new tab, say).
 	const PICK = "opendesk-apps-screen-pick";
 	let from_apps_screen = picked_before_reload();
 	document.addEventListener(
@@ -2006,14 +2088,18 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			if (!(event.target instanceof Element)) return;
 			const link = event.target.closest(".desktop-container a[href]");
 			if (!link) return;
-			from_apps_screen = tile_app(link);
+			// A click that opens the tile elsewhere (a new tab, say) leaves this page where it is,
+			// and nothing armed for the next page it shows.
 			const plain_click =
 				event.button === 0 &&
 				!event.metaKey &&
 				!event.ctrlKey &&
 				!event.shiftKey &&
-				!event.altKey;
-			if (enters_app && from_apps_screen && plain_click) {
+				!event.altKey &&
+				link.getAttribute("target") !== "_blank";
+			if (!plain_click) return;
+			from_apps_screen = tile_app(link);
+			if (enters_app && from_apps_screen) {
 				const app = from_apps_screen;
 				from_apps_screen = null;
 				event.preventDefault();
@@ -2159,10 +2245,16 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		if (plain) header.$drop_icon && header.$drop_icon.addClass("hidden");
 		if (header.opendesk_plain_guard) return;
 		const swallow = guarded((event) => {
-			if (sidebar.opendesk_module_list || !menu_is_empty(header)) return;
 			if (
 				event.type === "keydown" &&
 				!["Enter", " ", "ArrowDown", "ArrowUp"].includes(event.key)
+			) {
+				return;
+			}
+			// As the header's last redraw found it (above), rather than reading the menu again.
+			if (
+				sidebar.opendesk_module_list ||
+				!header.wrapper.hasClass("opendesk-header-plain")
 			) {
 				return;
 			}
@@ -2447,16 +2539,16 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			});
 		}
 
-		modules_of(app).forEach((entry, index) => {
-			if (entry.category) {
-				start(__(entry.category));
-			} else if (!group || (entry.space_before && index > 0)) {
+		module_layout(app).forEach(({ entry, label, icon, category, spacer }) => {
+			if (category) {
+				start(category);
+			} else if (!group || spacer) {
 				start();
 			}
 			group.options.push({
 				name: `opendesk-rail-module-${entry.shell}`,
-				label: __(entry.label),
-				icon: entry.icon || frappe.get_module_icon(entry.shell),
+				label,
+				icon,
 				// The Module Menu's rows are the only place modules are listed, so the one on
 				// screen is marked there.
 				selected: menu_picker && entry.shell === sidebar.current_module,
