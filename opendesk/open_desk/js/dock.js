@@ -1,4 +1,4 @@
-// The navigation rail: apps down the left of the desk, where Frappe's Dock lists the open app's
+// The dock: apps down the left of the desk, where Frappe's Dock lists the open app's
 // modules.
 //
 // Built on the Dock rather than beside it. Frappe 16.50 draws a column left of the sidebar (the
@@ -13,39 +13,40 @@
 //     Picker" chooses between (below). Its tooltip is just its name;
 //   - the header menu over the sidebar lists the open app's modules, under the Categories and
 //     Spacers its Desk App sets, in place of Frappe's switcher rows;
-//   - the header names the app as well as the module, since the rail's lit tile is an app and
+//   - the header names the app as well as the module, since the dock's lit tile is an app and
 //     Frappe's header names only the module;
-//   - Search and Notifications sit at the foot of the rail, over the user's avatar, rather than
-//     at the top of the sidebar. They are Frappe's own: the rail's buttons carry the classes
+//   - Search and Notifications sit at the foot of the dock, over the user's avatar, rather than
+//     at the top of the sidebar. They are Frappe's own: the dock's buttons carry the classes
 //     Frappe opens search from (`navbar-modal-search-mobile`, a delegated click) and puts the
 //     unread count into (`notification-count`, every one on the page), and the bell toggles
-//     Frappe's notifications panel. Other apps' tiles follow them (`opendesk.rail.tools`, below):
+//     Frappe's notifications panel. Other apps' tiles follow them (`opendesk.dock.tools`, below):
 //     Commons' To Do, say, opening its own panel the same way. Frappe's panels open beside the
-//     rail, over the sidebar, rather than beside the sidebar;
-//   - the user menu's Manage Dock, which arranges a Dock nothing draws while the rail is on, gives
+//     dock, over the sidebar, rather than beside the sidebar;
+//   - the user menu's Manage Dock, which arranges a Dock nothing draws while the dock is on, gives
 //     way to Manage Desk Apps, and a click on the module list's header opens Manage Modules for that
-//     app (both `js/arrange.js`). They arrange what the rail does draw, and it is redrawn in
-//     place when they save (`opendesk.rail.apply`).
+//     app (both `js/arrange.js`). They arrange what the dock does draw, and it is redrawn in
+//     place when they save (`opendesk.dock.apply`).
 //
 // The module picker, "Module Menu" (the default), "App Menu", "Sliding Sidebar", "Module Tabs",
-// "Three Column", "Accordion Rail" or "Accordion Sidebar" (`features.module_picker`), says where
-// an app's modules are offered. What picking an app on the rail does is a setting of its own, the
+// "Three Column", "Accordion Dock" or "Accordion Sidebar" (`features.module_picker`), says where
+// an app's modules are offered. What picking an app on the dock does is a setting of its own, the
 // same in every picker (`features.app_pick`, "Picking an App"):
 //
-//   - Open Last Module (the default): picking another app goes into it, to the module last open
-//     in it in this browser, else its first, and the picker offers the rest from there. Picking
-//     the app you are in offers its modules, as below.
+//   - Show Its Modules (the default): picking an app offers its modules, over the page you are
+//     on, until one is picked -- as each picker describes below.
+//   - Open Last Module: picking another app goes into it, to the module last open in it in this
+//     browser, else its first, and the picker offers the rest from there. Picking the app you are
+//     in offers its modules, as above.
 //   - Open Last Sidebar Item: the same, to the sidebar item last open in the app -- the page of
 //     the row Frappe lit -- rather than the module's landing page; the module last open in it
 //     where there is no such item.
-//   - Show Its Modules: picking an app offers its modules, over the page you are on, until one is
-//     picked -- as each picker describes below.
 //
-// App Menu. Frappe's own rail, nearly: the open app's mark at the top and its modules under it,
+// App Menu. Frappe's own dock, nearly: the open app's mark at the top and its modules under it,
 // a tile each, named in a tooltip, the sidebar holding the open module's content. The mark opens a menu of the apps -- in place of the Apps screen, which the
-// menu's last row leads to. With Show Its Modules, an app picked from the menu takes the rail,
+// menu's last row leads to. With Show Its Modules, an app picked from the menu takes the dock,
 // mark and modules, over the page you are on, until a module is picked or it is put back as
-// the band's is. Below 768px the header menu offers the modules.
+// the band's is. On a phone too, the dock being in the sidebar's drawer ("Show Dock on Mobile");
+// without it, the header menu offers the modules there.
 //
 // Sliding Sidebar. The sidebar's rows become the app's modules -- its frontend first, set apart,
 // then the modules under their Categories and Spacers -- and its header is the app: its mark,
@@ -64,68 +65,69 @@
 // rebuilds Frappe makes on its own as you navigate just appear, or motion would stop meaning
 // anything.
 //
-// Module Menu. Each level of the hierarchy has one surface: the rail holds apps, the sidebar's
+// Module Menu. Each level of the hierarchy has one surface: the dock holds apps, the sidebar's
 // header holds the module -- the app over the module open in it, and a menu to change it -- and
 // the sidebar's rows are always the module's content. The modules are never sidebar rows: they
 // are the header's menu, the one on screen marked, ending in Manage Modules. Picking an app on
-// the rail opens that menu on the app's modules, the header naming the app over "Choose a
+// the dock opens that menu on the app's modules, the header naming the app over "Choose a
 // module" until it closes, over the sidebar of the page you are on, which stays as it is until
 // a module is picked.
 //
-// Three Column. The three levels are three columns: the rail, then a column of the app's modules,
+// Three Column. The three levels are three columns: the dock, then a column of the app's modules,
 // then the sidebar, which only ever holds the module's content and is headed by the module alone,
 // the column naming the app. Three columns are a lot of the screen, so each can give room back:
 // the module column folds to its icons (its foot's button, remembered in this browser), and folded
-// it opens over the sidebar while the pointer is on it, or when an app is picked on the rail; the
-// sidebar folds as Frappe folds it. Picking another app on the rail shows its modules in the
-// column, over the page you are on, until a module is picked or the page changes. Where the rail
-// is not drawn (below 768px) there is no column either, and the header menu picks, as the Module
-// Menu does.
+// it opens over the sidebar while the pointer is on it, or when an app is picked on the dock; the
+// sidebar folds as Frappe folds it. Picking another app on the dock shows its modules in the
+// column, over the page you are on, until a module is picked or the page changes. Below 768px,
+// where the dock and the sidebar are a drawer with no room for a third column, there is no column,
+// and the header menu picks, as the Module Menu does.
 //
-// Module Tabs. Each level runs its own way: apps down the rail, the app's modules across a band at
+// Module Tabs. Each level runs its own way: apps down the dock, the app's modules across a band at
 // the top -- over the sidebar and the page alike, the app's mark and name first -- and the
 // module's content down the sidebar. The band costs height rather than width, so the page loses no
 // columns to it. Tabs that do not fit go under More, which takes the open module's name when that
-// is one of them. Picking another app on the rail shows its modules in the band, none of them lit,
+// is one of them. Picking another app on the dock shows its modules in the band, none of them lit,
 // until a module is picked, the page changes, or Escape or a click elsewhere puts it back. Below
 // 768px there is no band, and the header menu offers the modules, as the Module Menu does. Beside
 // the band the sidebar has no header, and Edit Sidebar is a pencil in its lower right corner, as
 // in the Sliding Sidebar.
 //
-// Accordion Rail. The open app's tile opens up on the rail to show its modules under it, a tile
+// Accordion Dock. The open app's tile opens up on the dock to show its modules under it, a tile
 // each, named in a tooltip; the sidebar holds the open module's content. Moving into another app,
-// its modules slide open under it as the last app's slide shut; picking another app on the rail
+// its modules slide open under it as the last app's slide shut; picking another app on the dock
 // opens its tray in the open app's place, the same way, until a module is picked or it is put back
-// as the band's is. A click on the open app's own tile folds its tray away and back. Below 768px
-// the header menu offers the modules.
+// as the band's is. A click on the open app's own tile folds its tray away and back. On a phone
+// too, the dock being in the sidebar's drawer ("Show Dock on Mobile"); without it, the header menu
+// offers the modules there.
 //
 // Accordion Sidebar. The sidebar lists the open app's modules as headings, the open module's
 // content under its own heading. A heading of another module opens it
 // (its content sliding open as the last module's slides shut); the open module's heading folds
-// its content away and back. Picking another app on the rail shows its modules' headings, every
+// its content away and back. Picking another app on the dock shows its modules' headings, every
 // one closed, until one is picked or they are put back as the band's are. At every width: on a
 // phone the sidebar is a drawer.
 //
 // In all of them but Three Column beside its column, the sidebar's header names the app over the
 // module open in it, as the levels run, with the app's mark -- words alone with App Menu, whose
-// rail carries the mark (`refresh_header`). And an app with one module, or only a frontend, has no choice to show and opens it.
+// dock carries the mark (`refresh_header`). And an app with one module, or only a frontend, has no choice to show and opens it.
 //
 // Which app a module is in is written into the boot by `js/boot_arrangement.js`: each module's
-// rail app into `module_sidebars[shell].app`, and an `app_data` entry for each rail app Frappe
+// dock app into `module_sidebars[shell].app`, and an `app_data` entry for each dock app Frappe
 // does not know, so Frappe's own header names the right app and logo -- again whenever Frappe
 // replaces either.
 //
-// Off unless Open Desk Settings' "Override Navigation Rail" is ticked, and off too if Frappe has moved
+// Off unless Open Desk Settings' "Override Dock" is ticked, and off too if Frappe has moved
 // what this hangs on: then the desk is simply Frappe's. Every change to Frappe's classes goes
-// through `patch`, so if Frappe changes something this reads and a change throws, the rail
+// through `patch`, so if Frappe changes something this reads and a change throws, the dock
 // switches itself off for the rest of the page and Frappe's own method runs instead (`give_up`).
 // `test_frappe_seams.py` checks every name this hangs on is still in Frappe's source.
 //
-// Tiles of other apps' own, at the rail's foot after Search and Notifications. An app adds one by
-// pushing a description onto `opendesk.rail.tools`, which it makes itself if it loads first:
+// Tiles of other apps' own, at the dock's foot after Search and Notifications. An app adds one by
+// pushing a description onto `opendesk.dock.tools`, which it makes itself if it loads first:
 //
-//   frappe.provide("opendesk.rail");
-//   (opendesk.rail.tools = opendesk.rail.tools || []).push({
+//   frappe.provide("opendesk.dock");
+//   (opendesk.dock.tools = opendesk.dock.tools || []).push({
 //       name: "todos",                 // unique among the tiles
 //       label: __("To Do"),            // the tooltip and the accessible name
 //       icon: "list-todo",             // one of the desk's icons
@@ -136,11 +138,11 @@
 //       on_draw: ($button) => {},      // optional: once the tile is on the page
 //   });
 //
-// A plain array, read when the rail draws its foot, so it does not matter which app's script
-// loads first, and an app that adds a tile needs nothing from this one when the rail is off or
+// A plain array, read when the dock draws its foot, so it does not matter which app's script
+// loads first, and an app that adds a tile needs nothing from this one when the dock is off or
 // this app is not installed. A tile that throws is left out.
-frappe.provide("opendesk.rail");
-opendesk.rail.tools = opendesk.rail.tools || [];
+frappe.provide("opendesk.dock");
+opendesk.dock.tools = opendesk.dock.tools || [];
 
 (function () {
 	const features = (frappe.boot && frappe.boot.opendesk_features) || {};
@@ -149,20 +151,20 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	const column_mode = picker === "column";
 	const tabs_mode = picker === "tabs";
 	const app_menu = picker === "app_menu";
-	const rail_accordion = picker === "accordion_rail";
+	const dock_accordion = picker === "accordion_dock";
 	const sidebar_accordion = picker === "accordion_sidebar";
 	// Every picker but the two that list modules in the sidebar offers them from the header's menu
-	// wherever it has nowhere else to show them: the column, the band and the rail are not drawn
-	// below 768px.
+	// wherever it has nowhere else to show them: the column and the band are not drawn below
+	// 768px, nor the dock where a page or a floating dock out of reach leaves it off.
 	const menu_picker = picker !== "sidebar" && !sidebar_accordion;
-	// What picking an app does, in whichever picker (`settings.app_pick`): go into it, to the module
-	// last open in it ("enter", the default) or to the sidebar item last open in it ("enter_item"),
-	// or offer its modules over the page you are on ("offer").
-	const enters_app = features.app_pick !== "offer";
+	// What picking an app does, in whichever picker (`settings.app_pick`): offer its modules over
+	// the page you are on ("offer", the default), or go into it, to the module last open in it
+	// ("enter") or to the sidebar item last open in it ("enter_item").
+	const enters_app = features.app_pick === "enter" || features.app_pick === "enter_item";
 	const enters_item = features.app_pick === "enter_item";
 	// Kept as one array for the life of the page: an editor's save refills it in place.
-	const rail_apps = frappe.boot && frappe.boot.desk_apps;
-	if (!features.navigation_rail || !Array.isArray(rail_apps) || !rail_apps.length) return;
+	const dock_apps = frappe.boot && frappe.boot.desk_apps;
+	if (!features.dock || !Array.isArray(dock_apps) || !dock_apps.length) return;
 
 	const Sidebar = frappe.ui && frappe.ui.Sidebar;
 	const Dock = frappe.ui && frappe.ui.Dock;
@@ -190,19 +192,21 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		return;
 	}
 
-	$("body").addClass("opendesk-rail-on");
-	// The rail's foot, with Search, Notifications and other apps' tiles, is a switch of its own.
-	if (features.rail_tools) $("body").addClass("opendesk-rail-tools-on");
-	opendesk.boot_arrangement.place(rail_apps);
+	$("body").addClass("opendesk-dock-on");
+	// The dock's foot, with Search, Notifications and other apps' tiles, is a switch of its own.
+	if (features.dock_tools) $("body").addClass("opendesk-dock-tools-on");
+	// And so is the dock in the sidebar's drawer below 768px (`should_pin`, below).
+	if (features.mobile_dock) $("body").addClass("opendesk-mobile-dock-on");
+	opendesk.boot_arrangement.place(dock_apps);
 
 	// Set once a change has thrown: from then on every patched method is Frappe's own.
 	let broken = false;
 
 	// Replace `proto[name]` with `impl`, which is handed a function calling Frappe's original with
-	// the same arguments. If `impl` throws, the rail gives up and the original answers -- once:
+	// the same arguments. If `impl` throws, the dock gives up and the original answers -- once:
 	// not again if `impl` had already called it. An error thrown by the original itself is Frappe's
 	// (a Navbar Settings row whose condition throws, say): it goes on to Frappe's caller as it would
-	// without the rail, and the rail stays on.
+	// without the dock, and the dock stays on.
 	function patch(proto, name, impl) {
 		const original = proto[name];
 		proto[name] = function (...args) {
@@ -229,19 +233,19 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		};
 	}
 
-	// Off for the rest of the page: Frappe's placement back, the rail's tools gone, and the sidebar
+	// Off for the rest of the page: Frappe's placement back, the dock's tools gone, and the sidebar
 	// and Dock drawn again, now by Frappe alone.
 	function give_up(error) {
 		if (broken) return;
 		broken = true;
 		console.error(
-			"opendesk: the navigation rail met a change in Frappe and has switched itself off",
+			"opendesk: the dock met a change in Frappe and has switched itself off",
 			error
 		);
 		// And to the site's Error Log, where it is seen: the console is this person's alone.
 		try {
 			frappe
-				.xcall("opendesk.open_desk.settings.report_rail_failure", {
+				.xcall("opendesk.open_desk.settings.report_dock_failure", {
 					error: String((error && error.stack) || error),
 					route: frappe.get_route_str ? frappe.get_route_str() : "",
 				})
@@ -250,22 +254,22 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			// Reporting is a courtesy; the desk is Frappe's either way.
 		}
 		$("body").removeClass(
-			"opendesk-rail-on opendesk-rail-tools-on opendesk-tabs-on opendesk-modules-beside"
+			"opendesk-dock-on opendesk-dock-tools-on opendesk-tabs-on opendesk-modules-beside"
 		);
 		const dock = frappe.app && frappe.app.sidebar && frappe.app.sidebar.dock;
 		if (dock) {
 			(dock.opendesk_tool_tips || []).forEach((tip) => tip.destroy());
 			dock.opendesk_tool_tips = [];
-			if (dock.$items) destroy_tips(dock.$items.find(".opendesk-rail-group"));
+			if (dock.$items) destroy_tips(dock.$items.find(".opendesk-dock-group"));
 		}
-		$(".opendesk-rail-tools, .opendesk-module-tabs, .opendesk-edit-sidebar").remove();
-		// The line the rail added under the header's title: Frappe's header has none.
+		$(".opendesk-dock-tools, .opendesk-module-tabs, .opendesk-edit-sidebar").remove();
+		// The line the dock added under the header's title: Frappe's header has none.
 		$(".sidebar-header .header-subtitle").remove();
 		$(".opendesk-header-plain, .opendesk-header-hidden").removeClass(
 			"opendesk-header-plain opendesk-header-hidden"
 		);
 		$(window).off(".opendesk-beside");
-		$(document).off("page-change.opendesk");
+		$(document).off("page-change.opendesk sidebar-expand.opendesk");
 		after_page.length = 0;
 		$(document).off(".opendesk-browse");
 		opendesk.boot_arrangement.release();
@@ -285,7 +289,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				if (sidebar.sidebar_header) clear_list_header(sidebar.sidebar_header);
 				if (sidebar.current_module) sidebar.setup(sidebar.current_module);
 				if (sidebar.dock) {
-					// The rail's mark leads to the Apps screen again, as Frappe's link.
+					// The dock's mark leads to the Apps screen again, as Frappe's link.
 					if (sidebar.dock.opendesk_app_menu) {
 						const own = sidebar.dock;
 						own.opendesk_app_menu.destroy();
@@ -309,9 +313,9 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		});
 	}
 
-	// A handler of the rail's own: a click, a key, a timer, a redraw an editor asked for. Frappe
+	// A handler of the dock's own: a click, a key, a timer, a redraw an editor asked for. Frappe
 	// calls none of these, so `patch` does not cover them; this does the same for them. If the
-	// handler throws, the rail gives up, and `fallback`, when given, does what Frappe's own desk
+	// handler throws, the dock gives up, and `fallback`, when given, does what Frappe's own desk
 	// would have done with the same event -- and from then on only `fallback` runs.
 	function guarded(handler, fallback) {
 		return function (...args) {
@@ -331,7 +335,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		window.location.href = app.frontend.url;
 	}
 
-	// Frappe's way into a rail app, for a click the rail could not handle: its first module, else
+	// Frappe's way into a dock app, for a click the dock could not handle: its first module, else
 	// its frontend.
 	function frappe_open_app(sidebar, app) {
 		const [first] = modules_of(app);
@@ -339,14 +343,14 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		else if (app.frontend) visit_frontend(app);
 	}
 
-	// The rail app holding a shell, by the placement the server wrote into the boot.
-	function rail_app_of(shell) {
+	// The dock app holding a shell, by the placement the server wrote into the boot.
+	function dock_app_of(shell) {
 		const sidebar = shell && frappe.boot.module_sidebars[shell];
 		const app_name = sidebar && sidebar.app;
-		return (app_name && rail_apps.find((app) => app.app_name === app_name)) || null;
+		return (app_name && dock_apps.find((app) => app.app_name === app_name)) || null;
 	}
 
-	// A rail app's modules this user can open, in its order.
+	// A dock app's modules this user can open, in its order.
 	function modules_of(app) {
 		return (app.modules || []).filter((entry) => frappe.boot.module_sidebars[entry.shell]);
 	}
@@ -384,13 +388,13 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// last open in it, and the picker offers the rest from there; picking the app you are in still
 	// offers its modules.
 	//
-	// A page that hides the sidebar (a page's `hide_sidebar`) can still show the rail, but neither
-	// the sidebar nor its header can offer the modules there. Unless the rail carries them itself
-	// (App Menu, Accordion Rail), the app is gone into instead, as Open Last Module would.
+	// A page that hides the sidebar (a page's `hide_sidebar`) can still show the dock, but neither
+	// the sidebar nor its header can offer the modules there. Unless the dock carries them itself
+	// (App Menu, Accordion Dock), the app is gone into instead, as Open Last Module would.
 	function open_app(sidebar, app) {
 		const can_offer =
-			sidebar_shown(sidebar) || app_menu_shown(sidebar) || rail_accordion_shown(sidebar);
-		const elsewhere = app !== rail_app_of(sidebar.current_module);
+			sidebar_shown(sidebar) || app_menu_shown(sidebar) || dock_accordion_shown(sidebar);
+		const elsewhere = app !== dock_app_of(sidebar.current_module);
 		if (modules_of(app).length && (!can_offer || (enters_app && elsewhere))) {
 			enter_app(sidebar, app);
 			return;
@@ -440,28 +444,28 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	function offer_modules(sidebar, app) {
 		if (column_shown(sidebar)) browse_column(sidebar, app);
 		else if (modules_beside(sidebar)) browse_app(sidebar, app);
-		// Accordion Sidebar on a module no rail app holds: the picked app's headings all the same.
+		// Accordion Sidebar on a module no dock app holds: the picked app's headings all the same.
 		else if (sidebar_accordion) browse_app(sidebar, app);
 		else if (menu_picker) open_picker(sidebar, app);
 		else show_module_list(sidebar, app);
 	}
 
 	// Whether the modules are listed somewhere of their own -- the module column, the band of
-	// tabs, under the app on the rail, or as the sidebar's headings -- rather than in the header's
+	// tabs, under the app on the dock, or as the sidebar's headings -- rather than in the header's
 	// menu.
 	function modules_beside(sidebar) {
 		return (
 			app_menu_shown(sidebar) ||
 			column_shown(sidebar) ||
 			tabs_shown(sidebar) ||
-			rail_accordion_shown(sidebar) ||
+			dock_accordion_shown(sidebar) ||
 			sidebar_accordion_shown(sidebar)
 		);
 	}
 
 	// The column or the band, whichever this picker draws, after anything that may show or hide
 	// it; and the module on screen noted as the one its app was left in. When the modules move
-	// between the header's menu and a place of their own -- the sidebar or the rail showing late,
+	// between the header's menu and a place of their own -- the sidebar or the dock showing late,
 	// on a page that loads after the route has changed, or the window crossing 768px -- the header
 	// changes with them, so it is redrawn here. (`opendesk-modules-beside` on the body is for the
 	// smoke test, `tests/smoke`, which reads it.)
@@ -514,9 +518,9 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		if (moved) sidebar.refresh_header();
 	}
 
-	// Show Its Modules, in the band, the rail's tray or the sidebar's bars: another app's modules
-	// on show over the page you are on, the rail lighting that app, until a module is picked, the
-	// page changes, or Escape or a click outside the column, the band, the rail and the sidebar puts
+	// Show Its Modules, in the band, the dock's tray or the sidebar's bars: another app's modules
+	// on show over the page you are on, the dock lighting that app, until a module is picked, the
+	// page changes, or Escape or a click outside the column, the band, the dock and the sidebar puts
 	// them away.
 	// (The module column shows it too, opening over the sidebar while folded, `browse_column`; the
 	// Module Menu and the Sliding Sidebar have their own.)
@@ -525,7 +529,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	}
 
 	function browse_app(sidebar, app) {
-		const open = rail_app_of(sidebar.current_module);
+		const open = dock_app_of(sidebar.current_module);
 		const was = browsing_app(sidebar);
 		sidebar.opendesk_browsing = app === open ? null : { app, route: frappe.get_route_str() };
 		if (!sidebar.opendesk_browsing) {
@@ -543,14 +547,14 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	}
 
 	function redraw_browsing(sidebar, leaving) {
-		if (app_menu) refresh_rail(sidebar);
+		if (app_menu) redraw_dock(sidebar);
 		if (column_mode && sidebar.opendesk_column) {
 			// A folded column opened over the sidebar to show the app goes back with it.
 			if (leaving) sidebar.opendesk_column.peek = false;
 			draw_column(sidebar);
 		}
 		if (tabs_mode) draw_tabs(sidebar);
-		if (rail_accordion) arrange_rail_groups(sidebar, false);
+		if (dock_accordion) arrange_dock_groups(sidebar, false);
 		if (sidebar_accordion) {
 			if (!leaving) draw_accordion_browsing(sidebar);
 			else if (sidebar.current_module) {
@@ -560,7 +564,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			}
 			sidebar.refresh_header();
 		}
-		light_rail(sidebar);
+		light_dock(sidebar);
 	}
 
 	let browsing_watched = false;
@@ -599,7 +603,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		);
 	}
 
-	// What decides whether the column, the band or the rail shows: the sidebar, and the rail.
+	// What decides whether the column, the band or the dock shows: the sidebar, and the dock.
 	function shown_state(sidebar) {
 		return `${sidebar_shown(sidebar)}|${!!(sidebar.dock && sidebar.dock.enabled)}`;
 	}
@@ -609,14 +613,15 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		return !!sidebar.wrapper && sidebar.wrapper.css("display") !== "none";
 	}
 
-	// Whether the rail can be reached: drawn beside the page, or floating where the pointer brings
-	// it out. Below 768px, and on a touch screen with a floating rail, it cannot.
-	function rail_reachable(sidebar) {
+	// Whether the dock can be reached: drawn beside the page or, with "Show Dock on Mobile", in the
+	// drawer below 768px (pinned, see `should_pin` below), or floating where the pointer brings it
+	// out. On a touch screen with a floating dock, it cannot; nor below 768px without the setting.
+	function dock_reachable(sidebar) {
 		const dock = sidebar.dock;
 		return (
-			!frappe.is_mobile() &&
 			!!dock &&
 			dock.enabled &&
+			(features.mobile_dock || !frappe.is_mobile()) &&
 			(dock.is_pinned || Dock.pointer_can_reveal?.())
 		);
 	}
@@ -625,7 +630,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	const COLUMN_FOLDED = "opendesk-module-column-folded";
 
-	// Whether the column is on screen: wherever the rail is drawn and the sidebar is.
+	// Whether the column is on screen: wherever the dock is drawn and the sidebar is.
 	function column_shown(sidebar) {
 		return (
 			column_mode &&
@@ -653,7 +658,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		}
 	}
 
-	// Made once, beside the rail, the first time the rail draws.
+	// Made once, beside the dock, the first time the dock draws.
 	function column_of(sidebar) {
 		if (sidebar.opendesk_column) return sidebar.opendesk_column;
 		if (!sidebar.dock || !sidebar.dock.$dock) return null;
@@ -694,7 +699,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			"click",
 			guarded(() => {
 				const app = column_app(sidebar);
-				if (app) opendesk.rail.manage_modules(app.key);
+				if (app) opendesk.dock.manage_modules(app.key);
 			})
 		);
 		// Folded, the pointer on it opens it over the sidebar, after a moment so that crossing it
@@ -762,15 +767,15 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	// The app whose modules the column shows: one on show (`browse_app`), else the open module's.
 	function column_app(sidebar) {
-		return browsing_app(sidebar) || rail_app_of(sidebar.current_module);
+		return browsing_app(sidebar) || dock_app_of(sidebar.current_module);
 	}
 
-	// An app picked on the rail, shown in the column as in the band or the accordions, and a
+	// An app picked on the dock, shown in the column as in the band or the accordions, and a
 	// folded column opened over the sidebar to show it -- the open app's too, picked again.
 	function browse_column(sidebar, app) {
 		const column = column_of(sidebar);
 		if (!column) return;
-		// A peek's pending close, from the pointer leaving the column for the rail, is overtaken.
+		// A peek's pending close, from the pointer leaving the column for the dock, is overtaken.
 		clearTimeout(column.timer);
 		browse_app(sidebar, app);
 		// After, since putting away an app on show folds the column back.
@@ -848,7 +853,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// Module Tabs ---------------------------------------------------------------------------------
 
 	// Whether the band is on screen: wherever the sidebar is, from 768px up. Unlike the column it
-	// does not need the rail beside it: a page without the rail still has its module's siblings.
+	// does not need the dock beside it: a page without the dock still has its module's siblings.
 	function tabs_shown(sidebar) {
 		return (
 			tabs_mode &&
@@ -858,8 +863,8 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		);
 	}
 
-	// Made once, the first time the rail draws. Fixed across the top of the page, right of the
-	// rail; the sidebar and the page are moved down under it (`opendesk-tabs-on`, `scss/rail.scss`).
+	// Made once, the first time the dock draws. Fixed across the top of the page, right of the
+	// dock; the sidebar and the page are moved down under it (`opendesk-tabs-on`, `scss/dock.scss`).
 	function tabs_of(sidebar) {
 		if (sidebar.opendesk_tabs) return sidebar.opendesk_tabs;
 		if (!sidebar.dock || !sidebar.dock.$dock) return null;
@@ -901,7 +906,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		$el.find(".opendesk-tabs-manage").on(
 			"click",
 			guarded(() => {
-				if (tabs.app) opendesk.rail.manage_modules(tabs.app.key);
+				if (tabs.app) opendesk.dock.manage_modules(tabs.app.key);
 			})
 		);
 		// Which tabs fit is measured, so it is measured again whenever the band changes width.
@@ -960,7 +965,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	function note_module(sidebar) {
 		if (!sidebar.wrapper || sidebar.wrapper.css("display") === "none") return;
-		const app = rail_app_of(sidebar.current_module);
+		const app = dock_app_of(sidebar.current_module);
 		if (app) remember_module(app, sidebar.current_module);
 	}
 
@@ -985,7 +990,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	function note_item(sidebar) {
 		if (!sidebar.wrapper || sidebar.wrapper.css("display") === "none") return;
 		const shell = sidebar.current_module;
-		const app = rail_app_of(shell);
+		const app = dock_app_of(shell);
 		if (!app) return;
 		const href = desk_link(
 			sidebar.active_item && sidebar.active_item.children(".item-anchor")
@@ -1039,8 +1044,8 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		const tabs = tabs_of(sidebar);
 		if (!tabs) return;
 		const browsing = browsing_app(sidebar);
-		const app = browsing || rail_app_of(sidebar.current_module);
-		// A module no rail app holds has no siblings to show.
+		const app = browsing || dock_app_of(sidebar.current_module);
+		// A module no dock app holds has no siblings to show.
 		const shown = tabs_shown(sidebar) && !!app;
 		$("body").toggleClass("opendesk-tabs-on", shown);
 		tabs.$el
@@ -1145,24 +1150,24 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	// App Menu ------------------------------------------------------------------------------------
 
-	// Whether the app's modules are the rail's tiles: wherever the rail can be reached.
+	// Whether the app's modules are the dock's tiles: wherever the dock can be reached.
 	function app_menu_shown(sidebar) {
-		return app_menu && rail_reachable(sidebar);
+		return app_menu && dock_reachable(sidebar);
 	}
 
-	// The app the rail shows: one on show (Show Its Modules), else the open module's.
-	function rail_menu_app(sidebar) {
-		return browsing_app(sidebar) || rail_app_of(sidebar.current_module);
+	// The app the dock shows: one on show (Show Its Modules), else the open module's.
+	function dock_menu_app(sidebar) {
+		return browsing_app(sidebar) || dock_app_of(sidebar.current_module);
 	}
 
-	// The rail's tiles, as Frappe's Dock draws a module's app: its frontend, then its modules, a
+	// The dock's tiles, as Frappe's Dock draws a module's app: its frontend, then its modules, a
 	// rule standing for a Category or Spacer, the module on screen lit.
 	function draw_module_tiles(dock, sidebar) {
-		const app = rail_menu_app(sidebar);
+		const app = dock_menu_app(sidebar);
 		if (!app) return;
 		const browsing = !!browsing_app(sidebar);
 		const tile = (label, icon, active, on_click, fallback) => {
-			const $tile = $(`<button class="dock-item opendesk-rail-module-tile" type="button">
+			const $tile = $(`<button class="dock-item opendesk-dock-module-tile" type="button">
 				<span class="dock-item-icon">${frappe.utils.icon(icon, "md")}</span>
 			</button>`)
 				.attr("aria-label", label)
@@ -1178,7 +1183,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			dock.name_tile($tile, label);
 			dock.$items.append($tile);
 		};
-		const rule = () => dock.$items.append('<div class="opendesk-rail-rule"></div>');
+		const rule = () => dock.$items.append('<div class="opendesk-dock-rule"></div>');
 		if (app.frontend) {
 			tile(app.frontend.label, "external-link", false, () => visit_frontend(app));
 			rule();
@@ -1195,11 +1200,11 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		});
 	}
 
-	// The rail's mark: the app's, opening a menu of the apps rather than the Apps screen, which
+	// The dock's mark: the app's, opening a menu of the apps rather than the Apps screen, which
 	// the menu's last row leads to.
 	function draw_app_logo(dock) {
 		const sidebar = dock.sidebar;
-		const app = rail_menu_app(sidebar);
+		const app = dock_menu_app(sidebar);
 		dock.$header_logo.html(app ? app_mark(app) : frappe.utils.icon("layout-grid", "md"));
 		dock.$header_title.text(app ? __(app.title) : __("Apps"));
 		dock.$header.attr("aria-label", __("Switch app"));
@@ -1213,7 +1218,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			});
 		}
 		if (dock.opendesk_app_menu) return;
-		// Frappe's own click on the mark puts a floating rail away, which would take the menu's
+		// Frappe's own click on the mark puts a floating dock away, which would take the menu's
 		// anchor with it; the menu's rows put it away instead. And the mark is no longer a link:
 		// Frappe's router follows a link to the desk however its click was handled. A button
 		// still, for the keyboard: Enter and Space open the menu.
@@ -1242,11 +1247,11 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	}
 
 	function app_menu_rows(sidebar) {
-		const current = rail_menu_app(sidebar);
+		const current = dock_menu_app(sidebar);
 		return [
 			{
 				group: "",
-				options: rail_apps
+				options: dock_apps
 					.filter((app) => choice_count(app))
 					.map((app) => ({
 						name: `opendesk-app-menu-${app.key}`,
@@ -1276,34 +1281,34 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		];
 	}
 
-	// Accordion Rail ------------------------------------------------------------------------------
+	// Accordion Dock ------------------------------------------------------------------------------
 
-	// Whether the open app's modules are on the rail: wherever the rail can be reached.
-	function rail_accordion_shown(sidebar) {
-		return rail_accordion && rail_reachable(sidebar);
+	// Whether the open app's modules are on the dock: wherever the dock can be reached.
+	function dock_accordion_shown(sidebar) {
+		return dock_accordion && dock_reachable(sidebar);
 	}
 
-	const RAIL_FOLDED = "opendesk-rail-group-folded";
+	const DOCK_FOLDED = "opendesk-dock-group-folded";
 
 	// An app's modules, under its tile: its frontend first, then a tile per module, named in a
 	// tooltip as the apps are; a rule stands for a Category or Spacer. A tray is made the first time
 	// its app opens and kept after, folded: opening and folding are a class on it
-	// (`arrange_rail_groups`), so the tray of the app you leave closes while the one you go into
+	// (`arrange_dock_groups`), so the tray of the app you leave closes while the one you go into
 	// opens, and the tiles between them move gradually, whichever way you went.
-	function make_rail_group(app) {
-		return $(`<div class="opendesk-rail-group ${RAIL_FOLDED}" role="group">
-			<div class="opendesk-rail-group-inner"></div>
+	function make_dock_group(app) {
+		return $(`<div class="opendesk-dock-group ${DOCK_FOLDED}" role="group">
+			<div class="opendesk-dock-group-inner"></div>
 		</div>`)
 			.attr({ "aria-label": __("{0} modules", [__(app.title)]), inert: "" })
 			.data("tips", []);
 	}
 
-	function fill_rail_group(sidebar, app, $group) {
+	function fill_dock_group(sidebar, app, $group) {
 		destroy_tips($group);
 		const tips = [];
-		const $inner = $group.find(".opendesk-rail-group-inner").empty();
+		const $inner = $group.find(".opendesk-dock-group-inner").empty();
 		const tile = (label, icon, active, on_click, fallback) => {
-			const $tile = $(`<button class="btn-reset opendesk-rail-module" type="button">
+			const $tile = $(`<button class="btn-reset opendesk-dock-module" type="button">
 				${frappe.utils.icon(icon, "sm")}
 			</button>`)
 				.attr("aria-label", label)
@@ -1331,10 +1336,10 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		};
 		if (app.frontend) {
 			tile(app.frontend.label, "external-link", false, () => visit_frontend(app));
-			$inner.append('<div class="opendesk-rail-group-rule"></div>');
+			$inner.append('<div class="opendesk-dock-group-rule"></div>');
 		}
 		module_layout(app).forEach(({ shell, label, icon, starts_group }) => {
-			if (starts_group) $inner.append('<div class="opendesk-rail-group-rule"></div>');
+			if (starts_group) $inner.append('<div class="opendesk-dock-group-rule"></div>');
 			tile(
 				label,
 				icon,
@@ -1351,37 +1356,37 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	}
 
 	// The open app's tray open -- unless its tile folded it, until the page moves into another app
-	// -- or the tray of an app on show (`browse_app`), and every other folded. `first` is the rail
+	// -- or the tray of an app on show (`browse_app`), and every other folded. `first` is the dock
 	// being drawn afresh, where the open app's tray is simply there rather than sliding open.
-	function arrange_rail_groups(sidebar, first) {
+	function arrange_dock_groups(sidebar, first) {
 		const dock = sidebar.dock;
-		if (!rail_accordion || !dock || !dock.$items) return;
-		const open = rail_app_of(sidebar.current_module);
-		if (sidebar.opendesk_rail_folded && (!open || sidebar.opendesk_rail_folded !== open.key)) {
-			sidebar.opendesk_rail_folded = null;
+		if (!dock_accordion || !dock || !dock.$items) return;
+		const open = dock_app_of(sidebar.current_module);
+		if (sidebar.opendesk_dock_folded && (!open || sidebar.opendesk_dock_folded !== open.key)) {
+			sidebar.opendesk_dock_folded = null;
 		}
-		const shown = rail_accordion_shown(sidebar);
+		const shown = dock_accordion_shown(sidebar);
 		const browsing = browsing_app(sidebar);
 		const target = browsing || open;
-		dock.$items.children(".opendesk-rail-app").each((_, tile) => {
+		dock.$items.children(".opendesk-dock-app").each((_, tile) => {
 			const $tile = $(tile);
-			const app = rail_apps.find((candidate) => candidate.key === tile.dataset.appKey);
+			const app = dock_apps.find((candidate) => candidate.key === tile.dataset.appKey);
 			const has_tray = shown && !!app && app === target && choice_count(app) > 1;
-			let $group = $tile.next(".opendesk-rail-group");
+			let $group = $tile.next(".opendesk-dock-group");
 			if (!has_tray) {
 				$tile.removeAttr("aria-expanded");
-				$group.addClass(RAIL_FOLDED).attr("inert", "");
+				$group.addClass(DOCK_FOLDED).attr("inert", "");
 				return;
 			}
-			const opened = !!browsing || sidebar.opendesk_rail_folded !== app.key;
+			const opened = !!browsing || sidebar.opendesk_dock_folded !== app.key;
 			if (!$group.length) {
-				$group = make_rail_group(app).insertAfter($tile);
-				if (first) $group.removeClass(RAIL_FOLDED);
+				$group = make_dock_group(app).insertAfter($tile);
+				if (first) $group.removeClass(DOCK_FOLDED);
 				// Folded first, so that opening it slides.
 				else void $group.get(0).offsetWidth;
 			}
-			fill_rail_group(sidebar, app, $group);
-			$group.toggleClass(RAIL_FOLDED, !opened);
+			fill_dock_group(sidebar, app, $group);
+			$group.toggleClass(DOCK_FOLDED, !opened);
 			if (opened) $group.removeAttr("inert");
 			else $group.attr("inert", "");
 			$tile.attr("aria-expanded", opened ? "true" : "false");
@@ -1390,42 +1395,42 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	// A redraw for the same apps in the same order moves the light and the trays and keeps every
 	// tile, so a tray can slide rather than be drawn again. Says whether it could.
-	function redraw_rail_in_place(dock, sidebar) {
+	function redraw_dock_in_place(dock, sidebar) {
 		const drawn = dock.$items
-			.children(".opendesk-rail-app")
+			.children(".opendesk-dock-app")
 			.map((_, tile) => tile.dataset.appKey)
 			.get();
-		const wanted = rail_apps.filter((app) => choice_count(app)).map((app) => app.key);
+		const wanted = dock_apps.filter((app) => choice_count(app)).map((app) => app.key);
 		if (!drawn.length || drawn.join("\n") !== wanted.join("\n")) return false;
-		light_rail(sidebar);
-		arrange_rail_groups(sidebar, false);
+		light_dock(sidebar);
+		arrange_dock_groups(sidebar, false);
 		return true;
 	}
 
-	// The rail's tiles and trays gone, so the next redraw draws them afresh -- after an editor
+	// The dock's tiles and trays gone, so the next redraw draws them afresh -- after an editor
 	// changed the apps' names or marks, say.
-	function clear_rail(dock) {
-		destroy_tips(dock.$items.find(".opendesk-rail-group"));
+	function clear_dock(dock) {
+		destroy_tips(dock.$items.find(".opendesk-dock-group"));
 		dock.$items.empty();
 	}
 
 	// A click on the open app's own tile folds its modules away, or opens them again.
-	function fold_rail_group(sidebar, app) {
-		const folded = sidebar.opendesk_rail_folded === app.key;
-		sidebar.opendesk_rail_folded = folded ? null : app.key;
-		arrange_rail_groups(sidebar, false);
+	function fold_dock_group(sidebar, app) {
+		const folded = sidebar.opendesk_dock_folded === app.key;
+		sidebar.opendesk_dock_folded = folded ? null : app.key;
+		arrange_dock_groups(sidebar, false);
 	}
 
 	// Accordion Sidebar ---------------------------------------------------------------------------
 
-	// Whether the sidebar lists the open app's modules: wherever it shows a module of a rail app.
+	// Whether the sidebar lists the open app's modules: wherever it shows a module of a dock app.
 	// At every width, the sidebar being the drawer it is on a phone.
 	function sidebar_accordion_shown(sidebar) {
 		return (
 			sidebar_accordion &&
 			!!sidebar.wrapper &&
 			sidebar.wrapper.css("display") !== "none" &&
-			!!(browsing_app(sidebar) || rail_app_of(sidebar.current_module))
+			!!(browsing_app(sidebar) || dock_app_of(sidebar.current_module))
 		);
 	}
 
@@ -1440,7 +1445,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// the same app, its rows fold away under its heading while the new module's rows open under
 	// theirs, so the headings between them move gradually, whichever way you went.
 	function draw_accordion(sidebar, leaving) {
-		const app = sidebar_accordion && rail_app_of(sidebar.current_module);
+		const app = sidebar_accordion && dock_app_of(sidebar.current_module);
 		const $container = sidebar.$items_container;
 		sidebar.opendesk_accordion_shell = app ? sidebar.current_module : null;
 		if (!app || !$container || !$container.length) return;
@@ -1503,7 +1508,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	// A module's bar: its icon and name, and -- `open` being true or false, not null -- the
 	// chevron that turns over while its rows are open. A click or Enter or Space runs `on_click`,
-	// or `fallback` once the rail has given up (`guarded`).
+	// or `fallback` once the dock has given up (`guarded`).
 	function accordion_heading($container, label, icon, open, on_click, fallback) {
 		const $heading = $(`<div class="sidebar-item-container opendesk-accordion-module">
 			<div class="standard-sidebar-item">
@@ -1557,7 +1562,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	// The header names the app over the list of its modules, with the app's mark.
 	function draw_accordion_header(sidebar, header) {
-		const app = browsing_app(sidebar) || rail_app_of(sidebar.current_module);
+		const app = browsing_app(sidebar) || dock_app_of(sidebar.current_module);
 		if (!app) return false;
 		header.$header_title.text(__(app.title));
 		header.$header_logo.html(app_mark(app));
@@ -1566,7 +1571,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	}
 
 	// Module Menu: the header's own menu, opened on `app`'s modules rather than the open
-	// module's app. The rail lights `app` while it is up, and the open app again once it closes.
+	// module's app. The dock lights `app` while it is up, and the open app again once it closes.
 	function open_picker(sidebar, app) {
 		open_sidebar(sidebar);
 		const header = sidebar.sidebar_header;
@@ -1576,7 +1581,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		watch_picker(sidebar, menu);
 		menu.close();
 		sidebar.opendesk_picker_app = app;
-		light_rail(sidebar);
+		light_dock(sidebar);
 		draw_picker_header(header, app);
 		// After the click that asked for it has finished, or the menu takes that click for one
 		// outside itself and closes again.
@@ -1604,7 +1609,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			if (!sidebar.opendesk_picker_app) return;
 			sidebar.opendesk_picker_app = null;
 			sidebar.refresh_header();
-			light_rail(sidebar);
+			light_dock(sidebar);
 		});
 		menu.opts.on_close = (reason) => {
 			if (on_close) on_close(reason);
@@ -1622,7 +1627,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		draw_module_rows(sidebar, app);
 		draw_list_header(sidebar);
 		draw_edit_button(sidebar);
-		light_rail(sidebar);
+		light_dock(sidebar);
 		if (!quiet) animate_rows(sidebar, "back");
 	}
 
@@ -1630,28 +1635,28 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		if (!sidebar.opendesk_module_list) return;
 		sidebar.opendesk_module_list = null;
 		if (sidebar.current_module) sidebar.setup(sidebar.current_module);
-		light_rail(sidebar);
+		light_dock(sidebar);
 	}
 
-	// Beside a pinned rail a collapsed sidebar is hidden altogether, header and all, so a picker
+	// Beside a pinned dock a collapsed sidebar is hidden altogether, header and all, so a picker
 	// that shows something in it opens it first, as Frappe opens it for a Dock entry.
 	function open_sidebar(sidebar) {
 		if (!sidebar.sidebar_expanded && typeof sidebar.open === "function") sidebar.open();
 	}
 
-	function refresh_rail(sidebar) {
+	function redraw_dock(sidebar) {
 		if (!sidebar.dock) return;
 		sidebar.dock.rendered = null;
 		sidebar.dock.render_entries();
 	}
 
-	// The app the rail lights: the one a picker or the column is showing, else the open module's.
+	// The app the dock lights: the one a picker or the column is showing, else the open module's.
 	function lit_app(sidebar) {
 		const list = sidebar.opendesk_module_list;
 		return (
 			sidebar.opendesk_picker_app ||
 			browsing_app(sidebar) ||
-			(list ? list.app : rail_app_of(sidebar.current_module))
+			(list ? list.app : dock_app_of(sidebar.current_module))
 		);
 	}
 
@@ -1659,10 +1664,10 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// what is lit on a pointerdown -- a menu closing, the column going back -- and a tile redrawn
 	// between that pointerdown and its click is not there to take the click, so picking another app
 	// while either is open would take two clicks.
-	function light_rail(sidebar) {
+	function light_dock(sidebar) {
 		if (!sidebar.dock || !sidebar.dock.$items) return;
 		const current = lit_app(sidebar);
-		sidebar.dock.$items.find(".opendesk-rail-app").each((_, tile) => {
+		sidebar.dock.$items.find(".opendesk-dock-app").each((_, tile) => {
 			const is_active = !!current && tile.dataset.appKey === current.key;
 			$(tile).toggleClass("active", is_active);
 			if (is_active) tile.setAttribute("aria-current", "page");
@@ -1674,7 +1679,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// module list (one level up, so the list comes in from the left). Not for an app with nothing
 	// else to pick.
 	function add_back_row(sidebar) {
-		const app = rail_app_of(sidebar.current_module);
+		const app = dock_app_of(sidebar.current_module);
 		const $container = sidebar.$items_container;
 		if (!app || choice_count(app) < 2 || !$container || !$container.length) return;
 		sidebar.add_item($container, {
@@ -1753,7 +1758,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// The header shows the app over its list: its mark, its name, and its module count under the
 	// name in Frappe's own subtitle style. Its menu belongs to the module Frappe thinks it is
 	// showing, which is not this list, so while the list is up a click on the header never reaches
-	// it. For someone who may arrange the rail, the click opens Manage Modules for this app
+	// it. For someone who may arrange the dock, the click opens Manage Modules for this app
 	// instead -- the list's own editor, from the list itself. For everyone else the header is a
 	// label. No chevron either way: it opens no menu.
 	function draw_list_header(sidebar) {
@@ -1780,7 +1785,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 					if (!shown) return;
 					event.stopImmediatePropagation();
 					event.preventDefault();
-					if (can_manage()) opendesk.rail.manage_modules(shown.app.key);
+					if (can_manage()) opendesk.dock.manage_modules(shown.app.key);
 				}),
 				true
 			);
@@ -1796,17 +1801,49 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		return frappe.utils.desktop_icon(app.title, "gray", "md");
 	}
 
-	// Search, Notifications and other apps' tiles, at the foot of the rail. Built once, with the Dock.
+	// Below 768px Frappe hides the Dock, and with it every way to another app but the header's
+	// menu. With "Show Dock on Mobile" the dock stays: it is a column in the sidebar's drawer, left
+	// of the sidebar, shown while the drawer is open (`scss/dock.scss`). That is the pinned dock --
+	// a full column, avatar at its foot -- whatever the user's Dock preference, since nothing
+	// brings a floating one out there.
+	if (features.mobile_dock && typeof Dock.prototype.should_pin === "function") {
+		patch(Dock.prototype, "should_pin", function (should_pin) {
+			return (this.enabled && frappe.is_mobile()) || should_pin();
+		});
+		// The drawer can close with a pointer resting on a tile (a pick that goes into an app closes
+		// it), and a tile that is hidden gets no pointerleave: its tooltip would stay on the page.
+		$(document).on(
+			"sidebar-expand.opendesk",
+			guarded((event, state) => {
+				const dock = frappe.app && frappe.app.sidebar && frappe.app.sidebar.dock;
+				if (!frappe.is_mobile() || (state && state.sidebar_expand) || !dock) return;
+				const group_tips = dock.$items
+					? dock.$items
+							.find(".opendesk-dock-group")
+							.toArray()
+							.flatMap((group) => $(group).data("tips") || [])
+					: [];
+				[
+					...(dock.tooltips || []),
+					dock.header_tooltip,
+					...(dock.opendesk_tool_tips || []),
+					...group_tips,
+				].forEach((tip) => tip && tip.hide());
+			})
+		);
+	}
+
+	// Search, Notifications and other apps' tiles, at the foot of the dock. Built once, with the Dock.
 	patch(Dock.prototype, "make", function (make_dock) {
 		const result = make_dock();
 		// Off, they stay at the top of the sidebar, where Frappe puts them.
-		if (!features.rail_tools) return result;
-		const $tools = $('<div class="opendesk-rail-tools"></div>').insertBefore(
+		if (!features.dock_tools) return result;
+		const $tools = $('<div class="opendesk-dock-tools"></div>').insertBefore(
 			this.$dock.find(".dock-user")
 		);
 		const tool = (name, label, icon, extra_class, suffix = "") => {
 			const $button = $(`<button
-				class="dock-item opendesk-rail-tool ${extra_class}"
+				class="dock-item opendesk-dock-tool ${extra_class}"
 				data-tool="${name}"
 				aria-label="${frappe.utils.escape_html(label)}"
 			>
@@ -1814,7 +1851,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				${suffix}
 			</button>`).appendTo($tools);
 			// Named as `Dock.name_tile` names a tile, but kept apart from the Dock's own tooltips,
-			// which every redraw of the rail destroys: these tiles are made once.
+			// which every redraw of the dock destroys: these tiles are made once.
 			this.opendesk_tool_tips = this.opendesk_tool_tips || [];
 			this.opendesk_tool_tips.push(
 				new frappe.ui.Tooltip($button[0], {
@@ -1846,20 +1883,20 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				__("Notifications"),
 				"bell",
 				"sidebar-notification",
-				'<span class="notification-count opendesk-rail-count hidden" aria-live="polite"></span>'
+				'<span class="notification-count opendesk-dock-count hidden" aria-live="polite"></span>'
 			).on(
 				"click",
 				guarded(() => frappe.ui.sidebar_panels.toggle("notifications"))
 			);
 		}
-		opendesk.rail.tools.forEach((spec) => {
+		opendesk.dock.tools.forEach((spec) => {
 			let $button = null;
 			try {
 				if (!spec || !spec.name || (spec.condition && !spec.condition())) return;
 				const badge = spec.badge_class
 					? `<span class="${frappe.utils.escape_html(
 							spec.badge_class
-					  )} opendesk-rail-count hidden" aria-live="polite"></span>`
+					  )} opendesk-dock-count hidden" aria-live="polite"></span>`
 					: "";
 				$button = tool(
 					frappe.utils.escape_html(spec.name),
@@ -1868,13 +1905,13 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 					frappe.utils.escape_html(spec.class || ""),
 					badge
 				);
-				// Another app's handler: its failure is that app's, and leaves the rail on.
+				// Another app's handler: its failure is that app's, and leaves the dock on.
 				if (spec.on_click) {
 					$button.on("click", () => {
 						try {
 							spec.on_click($button);
 						} catch (e) {
-							console.error(`opendesk: the rail tile ${spec.name} failed`, e);
+							console.error(`opendesk: the dock tile ${spec.name} failed`, e);
 						}
 					});
 				}
@@ -1882,24 +1919,24 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			} catch (e) {
 				// Left out even when it was already drawn, before its `on_draw` threw.
 				if ($button) $button.remove();
-				console.error(`opendesk: left the rail tile ${spec && spec.name} out`, e);
+				console.error(`opendesk: left the dock tile ${spec && spec.name} out`, e);
 			}
 		});
 		return result;
 	});
 
-	// Whether this user may arrange the rail: the editors in `js/arrange.js` say.
+	// Whether this user may arrange the dock: the editors in `js/arrange.js` say.
 	function can_manage() {
-		const editors = window.opendesk && opendesk.rail;
+		const editors = window.opendesk && opendesk.dock;
 		return !!(editors && editors.can_manage && editors.can_manage());
 	}
 
 	// The user menu: Manage Dock out, Manage Desk Apps in, where it was (`public/js/user_menu_rows.js`).
 	// Manage Modules opens from the module list's header (`draw_list_header`), or is the header
 	// menu's last row with the Module Menu picker (`picker_groups`).
-	// Both rows stay in the menu, which is built once: Manage Desk Apps while the rail is on,
+	// Both rows stay in the menu, which is built once: Manage Desk Apps while the dock is on,
 	// Frappe's own row again once it has given up.
-	const manage_rail = {
+	const manage_dock = {
 		name: "opendesk-manage-desk-apps",
 		// Read when the menu is drawn: Frappe may load the translations after this script runs.
 		get label() {
@@ -1907,7 +1944,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		},
 		icon: "monitor",
 		condition: () => !broken && can_manage(),
-		onclick: () => opendesk.rail.manage_rail(),
+		onclick: () => opendesk.dock.manage_dock(),
 	};
 	opendesk.user_menu.add((groups) =>
 		groups.map((group) =>
@@ -1917,7 +1954,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 						options: group.options.flatMap((row) =>
 							row && row.name === "workspace-selector"
 								? [
-										manage_rail,
+										manage_dock,
 										{
 											...row,
 											condition: () =>
@@ -1931,22 +1968,22 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		)
 	);
 
-	// After an editor saves: the rail, each module's rail app, and the app entries Frappe's header
+	// After an editor saves: the dock, each module's dock app, and the app entries Frappe's header
 	// reads, as the server now resolves them -- then everything drawn from them.
-	frappe.provide("opendesk.rail");
-	opendesk.rail.apply = guarded(function ({ desk_apps, app_data, module_sidebars }) {
-		rail_apps.splice(0, rail_apps.length, ...(desk_apps || []));
+	frappe.provide("opendesk.dock");
+	opendesk.dock.apply = guarded(function ({ desk_apps, app_data, module_sidebars }) {
+		dock_apps.splice(0, dock_apps.length, ...(desk_apps || []));
 		// With any module the editor just made, which the page's copy has never seen. Placed in
-		// its rail app as it arrives (`js/boot_arrangement.js`).
+		// its dock app as it arrives (`js/boot_arrangement.js`).
 		if (module_sidebars) frappe.boot.module_sidebars = module_sidebars;
 		opendesk.boot_arrangement.adopt(app_data);
-		opendesk.boot_arrangement.place(rail_apps);
+		opendesk.boot_arrangement.place(dock_apps);
 
 		const sidebar = frappe.app && frappe.app.sidebar;
 		if (!sidebar) return;
-		// What a picker or the column is showing is an app of the old rail: the same app on the
+		// What a picker or the column is showing is an app of the old dock: the same app on the
 		// new one, or nothing if it is gone.
-		const fresh = (app) => (app && rail_apps.find((a) => a.key === app.key)) || null;
+		const fresh = (app) => (app && dock_apps.find((a) => a.key === app.key)) || null;
 		if (sidebar.opendesk_picker_app) {
 			sidebar.opendesk_picker_app = fresh(sidebar.opendesk_picker_app);
 		}
@@ -1962,17 +1999,17 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			sidebar.refresh_header();
 		}
 		// Drawn afresh: the apps' names and marks may have changed, which a redraw in place keeps.
-		if (sidebar.dock && sidebar.dock.$items) clear_rail(sidebar.dock);
-		refresh_rail(sidebar);
+		if (sidebar.dock && sidebar.dock.$items) clear_dock(sidebar.dock);
+		redraw_dock(sidebar);
 	}, adopt_saved);
 
-	// After the rail has given up, a save still reaches the boot, as without the rail.
+	// After the dock has given up, a save still reaches the boot, as without the dock.
 	function adopt_saved({ app_data, module_sidebars }) {
 		if (module_sidebars) frappe.boot.module_sidebars = module_sidebars;
 		opendesk.boot_arrangement.adopt(app_data);
 	}
 
-	// Every page can switch apps, so the rail is drawn wherever the page lets Frappe draw a Dock,
+	// Every page can switch apps, so the dock is drawn wherever the page lets Frappe draw a Dock,
 	// whether or not the app on screen ships one.
 	patch(Sidebar.prototype, "dock_enabled", () => true);
 
@@ -2014,14 +2051,14 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// changes, which includes moving to another module, so the lit app follows.
 	patch(Dock.prototype, "render_entries", function () {
 		const sidebar = this.sidebar;
-		// With Accordion Rail, a redraw for the same apps keeps the tiles, so the trays can slide.
-		if (rail_accordion && redraw_rail_in_place(this, sidebar)) {
+		// With Accordion Dock, a redraw for the same apps keeps the tiles, so the trays can slide.
+		if (dock_accordion && redraw_dock_in_place(this, sidebar)) {
 			draw_beside(sidebar);
 			return;
 		}
 		this.tooltips.forEach((tip) => tip.destroy());
 		this.tooltips = [];
-		clear_rail(this);
+		clear_dock(this);
 		// With App Menu, the app's modules, under its mark.
 		if (app_menu) {
 			draw_module_tiles(this, sidebar);
@@ -2032,12 +2069,12 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 		const current = lit_app(sidebar);
 
-		rail_apps.forEach((app) => {
+		dock_apps.forEach((app) => {
 			if (!choice_count(app)) return;
 			const is_active = !!current && app.key === current.key;
 			const label = __(app.title);
 			const $item = $(`<button
-				class="dock-item opendesk-rail-app ${is_active ? "active" : ""}"
+				class="dock-item opendesk-dock-app ${is_active ? "active" : ""}"
 				data-app-key="${frappe.utils.escape_html(app.key)}"
 				aria-label="${frappe.utils.escape_html(label)}"
 				${is_active ? 'aria-current="page"' : ""}
@@ -2053,10 +2090,10 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 						// The open app's tile, with its modules under it, folds them instead. Read
 						// on the click: the tiles outlive the redraws that move the open app.
 						if (
-							app === rail_app_of(sidebar.current_module) &&
+							app === dock_app_of(sidebar.current_module) &&
 							$item.attr("aria-expanded")
 						) {
-							fold_rail_group(sidebar, app);
+							fold_dock_group(sidebar, app);
 							return;
 						}
 						this.close();
@@ -2067,14 +2104,15 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			);
 			this.$items.append($item);
 		});
-		arrange_rail_groups(sidebar, true);
-		// The module column, or the band of tabs, follows the rail: it is drawn whenever the rail is.
+		arrange_dock_groups(sidebar, true);
+		// The module column, or the band of tabs, follows the dock: it is drawn whenever the dock is.
 		draw_beside(sidebar);
 	});
 
 	// And whenever a page shows or hides the sidebar, which takes the column or the band with it;
-	// and when the window crosses 768px, where the column, the band and the rail give way to the
-	// header menu and come back, the header with it, since it names the app only where they do not.
+	// and when the window crosses 768px, where the column and the band give way to the header menu
+	// and come back, and the dock moves into the drawer and out, the header with them, since it
+	// names the app only where they do not.
 	{
 		let resize_timer = null;
 		let was_mobile = frappe.is_mobile();
@@ -2084,12 +2122,19 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				guarded(() => {
 					const sidebar = frappe.app && frappe.app.sidebar;
 					if (!sidebar || !sidebar.wrapper) return;
-					draw_beside(sidebar);
-					// Crossing 768px changes the rail's reach, and with it whatever the header's
-					// menu holds (the Sliding Sidebar's plain header, say), modules moving or not.
 					const mobile = frappe.is_mobile();
-					if (mobile !== was_mobile) sidebar.refresh_header();
+					const crossed = mobile !== was_mobile;
 					was_mobile = mobile;
+					// The drawer's dock is pinned and a floating one out of it is not: what the
+					// dock draws (App Menu, Accordion Dock) follows its reach.
+					if (crossed && sidebar.dock && typeof sidebar.dock.apply_pin === "function") {
+						sidebar.dock.apply_pin();
+						redraw_dock(sidebar);
+					}
+					draw_beside(sidebar);
+					// Crossing 768px changes whatever the header's menu holds (the Sliding
+					// Sidebar's plain header, say), modules moving or not.
+					if (crossed) sidebar.refresh_header();
 				}),
 				150
 			);
@@ -2101,7 +2146,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				const draws = beside_draws;
 				const result = original();
 				// Frappe shows or hides the sidebar, then refreshes the Dock, which redraws
-				// through `render_entries` when the rail changed -- by then with the sidebar as
+				// through `render_entries` when the dock changed -- by then with the sidebar as
 				// it now is. Drawn here only when what shows the column or band changed and that
 				// redraw did not happen.
 				if (shown_state(this) !== before && beside_draws === draws) draw_beside(this);
@@ -2119,6 +2164,48 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		if (this.sidebar_header) clear_list_header(this.sidebar_header);
 		return setup();
 	});
+
+	// Below 768px Frappe shuts the drawer whenever it rebuilds the sidebar, which it does on every
+	// move into another module. A module picked in the drawer -- from the header's menu, the dock or
+	// the sidebar's own list -- is a step on the way to the module's content, not the content: the
+	// drawer stays open on the new module's rows. Picking one of those closes it, as Frappe closes
+	// it (its click on a row that leads somewhere, before the route changes), and a rebuild with
+	// the drawer already shut leaves it shut.
+	if (typeof Sidebar.prototype.restore_expanded_state === "function") {
+		patch(Sidebar.prototype, "restore_expanded_state", function (restore) {
+			const keep_open = this.panel_can_close() && this.sidebar_expanded;
+			const result = restore();
+			if (keep_open && !this.sidebar_expanded) this.open();
+			return result;
+		});
+	}
+
+	// The same pick would then shut the drawer all the same, as its click reaches the document:
+	// Frappe closes the drawer on a click outside it, and a row the pick rebuilt away, or one in
+	// the header's menu (drawn over the page, outside the drawer), looks outside. Frappe's
+	// click-away, with those two let through. (`test_frappe_seams` keeps the copy level with
+	// Frappe's.)
+	if (typeof Sidebar.prototype.setup_click_away === "function") {
+		patch(Sidebar.prototype, "setup_click_away", function () {
+			$(document)
+				.off(".sidebar-click-away")
+				.on("click.sidebar-click-away", (e) => {
+					if (!this.sidebar_expanded || !this.panel_can_close()) return;
+					if (
+						$(e.target).closest(
+							".body-sidebar, .dock, .sidebar-toggle-btn, .sidebar-panel, .sidebar-collapse-arrow"
+						).length
+					)
+						return;
+					if (
+						!broken &&
+						(!e.target.isConnected || $(e.target).closest("[role=menu]").length)
+					)
+						return;
+					this.close();
+				});
+		});
+	}
 
 	// With the Sliding Sidebar, the rows Frappe draws for a module start with a way back to its
 	// app's module list.
@@ -2154,7 +2241,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		const result = set_workspace_sidebar();
 		const list = this.opendesk_module_list;
 		if (list && frappe.get_route_str() !== list.route) leave_module_list(this);
-		// The same for an app the column, the band, the rail or the sidebar was showing.
+		// The same for an app the column, the band, the dock or the sidebar was showing.
 		const browsing = this.opendesk_browsing;
 		if (browsing && frappe.get_route_str() !== browsing.route) leave_browsing(this);
 		// Frappe has lit the row for the page: noted as the one its app was left on -- once the
@@ -2175,7 +2262,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 
 	// The Apps screen. Its tiles are links to each app's landing page, which Frappe takes to be
 	// the app's first module (`Sidebar.app_landing_route`). The page is still that one, but for
-	// an app with a choice to make, its modules are offered, as picking the app on the rail does
+	// an app with a choice to make, its modules are offered, as picking the app on the dock does
 	// -- once the route has changed and the sidebar is built (`set_workspace_sidebar` above). A tile leading out of the desk, to a frontend, or for an
 	// app with one thing to pick, is left alone.
 	//
@@ -2183,7 +2270,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// `/desk/...`. So the pick is also kept in this tab's session storage for a few seconds, and
 	// the page it lands on takes it from there.
 	//
-	// With Open Last Module or Open Last Sidebar Item a tile does what picking the app on the rail
+	// With Open Last Module or Open Last Sidebar Item a tile does what picking the app on the dock
 	// does (`enter_app`) rather than open the landing page, unless the click is one that opens the
 	// link elsewhere (a new tab, say).
 	const PICK = "opendesk-apps-screen-pick";
@@ -2234,13 +2321,13 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			const saved = JSON.parse(sessionStorage.getItem(PICK) || "null");
 			sessionStorage.removeItem(PICK);
 			if (!saved || Date.now() - saved.at > 15000) return null;
-			return rail_apps.find((app) => app.key === saved.key) || null;
+			return dock_apps.find((app) => app.key === saved.key) || null;
 		} catch (e) {
 			return null;
 		}
 	}
 
-	// The rail app an Apps screen tile leads into, when it should open on the module list.
+	// The dock app an Apps screen tile leads into, when it should open on the module list.
 	function tile_app(link) {
 		const sidebar = frappe.app && frappe.app.sidebar;
 		if (!sidebar || typeof sidebar.app_landing_route !== "function") return null;
@@ -2252,7 +2339,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			const route = sidebar.app_landing_route(candidate);
 			return route && path(route) === target;
 		});
-		const app = entry && rail_apps.find((candidate) => candidate.app_name === entry.app_name);
+		const app = entry && dock_apps.find((candidate) => candidate.app_name === entry.app_name);
 		return app && choice_count(app) > 1 ? app : null;
 	}
 
@@ -2270,7 +2357,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			draw_picker_header(header, this.opendesk_picker_app);
 		} else if (header) {
 			clear_list_header(header);
-			const app = rail_app_of(this.current_module);
+			const app = dock_app_of(this.current_module);
 			if (sidebar_accordion_shown(this) && browsing_app(this)) {
 				// Over another app's module headings, that app alone.
 				draw_accordion_header(this, header);
@@ -2281,7 +2368,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			} else if (app) {
 				const module_title = header.$header_title.text();
 				header.$header_title.text(__(app.title));
-				// With App Menu the rail's mark is the app's already: the header is words alone.
+				// With App Menu the dock's mark is the app's already: the header is words alone.
 				header.$header_logo.html(app_menu_shown(this) ? "" : app_mark(app));
 				header.wrapper.toggleClass("opendesk-header-no-mark", app_menu_shown(this));
 				// A module called what its app is (Education's, say) is not named twice.
@@ -2304,7 +2391,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// Only beside the module column or the band: every other picker keeps the modules in this
 	// menu, so it is never one row there, and the menu's rows are only read where they can be.
 	// Reading them runs the site's own row conditions (Navbar Settings), and one that throws
-	// means a menu, not a broken rail.
+	// means a menu, not a broken dock.
 	function lone_row(header) {
 		if (!modules_beside(header.sidebar)) return null;
 		try {
@@ -2333,7 +2420,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	}
 
 	// Sliding Sidebar: a header whose menu would be empty -- the modules being the sidebar's own
-	// list and Edit Sidebar its corner's button, which is so wherever the rail can be reached and
+	// list and Edit Sidebar its corner's button, which is so wherever the dock can be reached and
 	// the site's rows have moved to the user menu -- is a plain label: no chevron, and a click or a
 	// key on it opens nothing. Over the module list it keeps its own click (`draw_list_header`).
 	// Reading the rows runs the site's own row conditions, and one that throws means a menu.
@@ -2475,29 +2562,29 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 	// its modules under their Categories, a Spacer starting a new group.
 	//
 	// With the Module Menu picker the modules come under the app's name, then Manage Modules; and
-	// opened from the rail on another app that is all it holds, since the rest of the menu
+	// opened from the dock on another app that is all it holds, since the rest of the menu
 	// concerns the sidebar on screen, which is not that app's.
 	patch(Header.prototype, "menu_items", function (menu_items) {
 		const items = menu_items();
-		const open_app = rail_app_of(this.sidebar.current_module);
+		const open_app = dock_app_of(this.sidebar.current_module);
 		const app = this.sidebar.opendesk_picker_app || open_app;
-		// A module no rail app holds (one its app's Dock hides, say) still gets the rail's apps
+		// A module no dock app holds (one its app's Dock hides, say) still gets the dock's apps
 		// in place of Frappe's "Apps" row, which lists every `app_data` entry on the Apps screen
-		// -- per-module tiles among them, when the Apps screen is arranged from the rail.
+		// -- per-module tiles among them, when the Apps screen is arranged from the dock.
 		if (!app) return without_app_switcher(items, app_switcher(this, this.sidebar));
 		// The module column, the band or the accordion lists the modules, so the menu does not list
 		// them again. The accordions have no button of their own for Manage Modules: it is here.
 		if (modules_beside(this.sidebar)) {
 			const rest = items.filter((group) => !is_switcher(group));
 			return [
-				...(app_menu || rail_accordion || sidebar_accordion ? manage_group(app) : []),
+				...(app_menu || dock_accordion || sidebar_accordion ? manage_group(app) : []),
 				...app_switcher(this, this.sidebar),
 				// Beside the band, Edit Sidebar is the corner's button (`draw_edit_button`).
 				...(tabs_mode ? without_rows(rest, ["edit-sidebar"]) : rest),
 			];
 		}
 		// The Sliding Sidebar lists the modules itself, behind its back row, and Edit Sidebar is
-		// its corner's button: what is left is the way to another app where the rail cannot be
+		// its corner's button: what is left is the way to another app where the dock cannot be
 		// reached, and the site's own rows (`sliding_header`).
 		if (picker === "sidebar") {
 			return [
@@ -2533,7 +2620,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 			.filter((group) => !group || !Array.isArray(group.options) || group.options.length);
 	}
 
-	// The app's modules under its name, then Manage Modules for whoever may arrange the rail.
+	// The app's modules under its name, then Manage Modules for whoever may arrange the dock.
 	function picker_groups(sidebar, app) {
 		const groups = module_groups(sidebar, app);
 		if (groups.length && !groups[0].group) groups[0].group = __(app.title);
@@ -2542,7 +2629,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		return groups;
 	}
 
-	// Manage Modules for `app`, for whoever may arrange the rail.
+	// Manage Modules for `app`, for whoever may arrange the dock.
 	function manage_group(app) {
 		return [
 			{
@@ -2553,15 +2640,15 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 						label: __("Manage Modules"),
 						icon: "settings-2",
 						condition: can_manage,
-						onclick: () => opendesk.rail.manage_modules(app.key),
+						onclick: () => opendesk.dock.manage_modules(app.key),
 					},
 				],
 			},
 		];
 	}
 
-	// Frappe's rows less its "Apps" row -- and its way out to the Apps screen, when the rail's own
-	// switcher carries one -- then the rail's switcher.
+	// Frappe's rows less its "Apps" row -- and its way out to the Apps screen, when the dock's own
+	// switcher carries one -- then the dock's switcher.
 	function without_app_switcher(items, switcher) {
 		const dropped = ["switch-app", ...(switcher.length ? ["all-apps"] : [])];
 		return [...without_rows(items, dropped), ...switcher];
@@ -2576,16 +2663,16 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		return rows.length > 0 && rows.every((row) => row && SWITCHER_ROWS.has(row.name));
 	}
 
-	// Where the rail cannot be reached -- below 768px, where the sidebar is a drawer and the
-	// rail is not drawn, or a touch screen with the rail floating out of reach -- the header
-	// menu is the only way to another app, as Frappe's own switcher is there. So it carries the
-	// rail's apps, then the way out to the Apps screen. Read on every open, as the menu's rows are.
+	// Where the dock cannot be reached -- a touch screen with the dock floating out of reach, or
+	// a page that leaves the dock off -- the header menu is the only way to another app, as
+	// Frappe's own switcher is there. So it carries the
+	// dock's apps, then the way out to the Apps screen. Read on every open, as the menu's rows are.
 	function app_switcher(header, sidebar) {
-		if (rail_reachable(sidebar)) return [];
-		const apps = rail_apps
+		if (dock_reachable(sidebar)) return [];
+		const apps = dock_apps
 			.filter((app) => choice_count(app))
 			.map((app) => ({
-				name: `opendesk-rail-app-${app.key}`,
+				name: `opendesk-dock-app-${app.key}`,
 				label: __(app.title),
 				onclick: guarded(
 					() => open_app(sidebar, app),
@@ -2627,7 +2714,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 		if (app.frontend) {
 			start();
 			group.options.push({
-				name: "opendesk-rail-frontend",
+				name: "opendesk-dock-frontend",
 				label: app.frontend.label,
 				icon: "external-link",
 				href: app.frontend.url,
@@ -2641,7 +2728,7 @@ opendesk.rail.tools = opendesk.rail.tools || [];
 				start();
 			}
 			group.options.push({
-				name: `opendesk-rail-module-${entry.shell}`,
+				name: `opendesk-dock-module-${entry.shell}`,
 				label,
 				icon,
 				// The Module Menu's rows are the only place modules are listed, so the one on

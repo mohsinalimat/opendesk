@@ -2,7 +2,7 @@
      Frappe's own (`frappe/public/icons/module-icons.svg`): two fills, dark and light, taken from
      the variables Frappe's sprite defines, with fallbacks for a page that has none.
 
-     The desk as Open Desk draws it: the rail down the left (dark), holding three app tiles, and
+     The desk as Open Desk draws it: the dock down the left (dark), holding three app tiles, and
      the sidebar beside it (light), holding a module's rows. -->
 <svg id="opendesk-module-symbols" aria-hidden="true" style="display: none;" class="icon" xmlns="http://www.w3.org/2000/svg">
 	<symbol viewBox="0 0 24 24" id="icon-open-desk-duotone" stroke="none" style="overflow: visible">

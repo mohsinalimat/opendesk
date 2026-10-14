@@ -4,7 +4,7 @@
 // screen, with the site's Navbar Settings rows (System Console, and whatever else a site or an
 // app's `standard_navbar_items` adds) and Help (the page's own help links, then the site's
 // Navbar Settings help rows). Neither is about the module. Both are about you and the site, as is
-// everything in the user menu at the foot of the rail (Settings, Reload, Logout), so they move
+// everything in the user menu at the foot of the dock (Settings, Reload, Logout), so they move
 // there, as one group above Logout: the same rows Frappe builds, from the header's own
 // `navbar_items`, and the same Help submenu, read afresh on every open from its
 // `get_help_siblings`, so the page's help links still follow the page.

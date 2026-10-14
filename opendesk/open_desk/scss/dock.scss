@@ -1,11 +1,11 @@
 /*
- * The navigation rail (`open_desk/js/rail.js`): Frappe's Dock listing apps
+ * The dock (`open_desk/js/dock.js`): Frappe's Dock listing apps
  * instead of the open app's modules. Frappe styles the tiles; an app's mark is often a logo
  * image rather than a glyph, which the Dock's tiles do not size, so it is sized here to sit in
  * the tile the way the Dock's own app mark sits at the top.
  */
 
-// The Dock's tile fills, its rule and its strong ink, which the rail's own trays and tiles share
+// The Dock's tile fills, its rule and its strong ink, which the dock's own trays and tiles share
 // with Frappe's Dock. Frappe 16 defines them in `desk/dock.scss`; its develop branch has dropped
 // them, so each is read with Frappe 16's value to fall back on. (`test_frappe_seams` checks that
 // every variable read here without a fallback is defined somewhere.)
@@ -22,7 +22,7 @@
 	--opendesk-rule: var(--dock-rule, rgba(255, 255, 255, 0.18));
 }
 
-body.opendesk-rail-on .dock-item.opendesk-rail-app {
+body.opendesk-dock-on .dock-item.opendesk-dock-app {
 	.dock-item-icon {
 		display: flex;
 		align-items: center;
@@ -39,7 +39,7 @@ body.opendesk-rail-on .dock-item.opendesk-rail-app {
 
 	// An app with neither logo nor icon wears the letter tile `desktop_icon()` builds, which has
 	// no size of its own here and comes out a different size in each icon style. It is held to
-	// the logos' tile, so every app on the rail is the same square.
+	// the logos' tile, so every app on the dock is the same square.
 	.dock-item-icon .icon-container {
 		width: 28px;
 		height: 28px;
@@ -55,21 +55,21 @@ body.opendesk-rail-on .dock-item.opendesk-rail-app {
 	}
 }
 
-// The site's mark at the top of the rail is a logo in its own right, drawn whole: Frappe rounds
+// The site's mark at the top of the dock is a logo in its own right, drawn whole: Frappe rounds
 // and backs an app's logo there, which clips a square mark's corners.
-body.opendesk-rail-on .dock .dock-logo .header-logo img {
+body.opendesk-dock-on .dock .dock-logo .header-logo img {
 	border-radius: 0;
 	background: transparent;
 }
 
 // An app's module list (see "The module list" in the script). Its header names the app, and
-// opens Manage Modules for those who may arrange the rail, and is a label for everyone else; the Category headings borrow the look of Frappe's own
+// opens Manage Modules for those who may arrange the dock, and is a label for everyone else; the Category headings borrow the look of Frappe's own
 // section breaks, but are not buttons.
-body.opendesk-rail-on {
+body.opendesk-dock-on {
 	.sidebar-header.opendesk-module-list-header {
 		cursor: default;
 
-		// For someone who may arrange the rail it opens the app's Manage Modules, and looks it.
+		// For someone who may arrange the dock it opens the app's Manage Modules, and looks it.
 		&.opendesk-module-list-header--manageable {
 			cursor: pointer;
 		}
@@ -131,7 +131,7 @@ body.opendesk-rail-on {
 // above, so nothing is swapped here.
 
 // The sliding rows must not widen the sidebar for the moment they are offset.
-body.opendesk-rail-on .body-sidebar-top {
+body.opendesk-dock-on .body-sidebar-top {
 	overflow-x: clip;
 }
 
@@ -142,11 +142,11 @@ body.opendesk-rail-on .body-sidebar-top {
 }
 
 // Frappe hides the header's mark beside a pinned Dock, because the Dock's lit tile already shows
-// the module's icon. The rail's tiles are apps, so nothing else on screen carries the mark: the
+// the module's icon. The dock's tiles are apps, so nothing else on screen carries the mark: the
 // header keeps it -- the app's over its module list, the module's inside one -- at Frappe's own
 // header padding. 768px is Bootstrap's md, the breakpoint Frappe's rule uses.
 @media (min-width: 768px) {
-	body.opendesk-rail-on.dock-pinned.dock-active
+	body.opendesk-dock-on.dock-pinned.dock-active
 		.body-sidebar-container.expanded
 		.sidebar-header {
 		padding-left: 6px;
@@ -157,11 +157,12 @@ body.opendesk-rail-on .body-sidebar-top {
 	}
 }
 
-// Search, Notifications and other apps' tiles (`opendesk.rail.tools`), at the foot of the rail
-// over the avatar, in the Dock's own tiles, when "Move Search and Notifications to Rail" is on
-// (`opendesk-rail-tools-on`). The sidebar's band of the same rows is hidden while the rail is on
-// screen beside it; below 768px, and on pages without the rail, the band stays.
-body.opendesk-rail-tools-on .dock .opendesk-rail-tools {
+// Search, Notifications and other apps' tiles (`opendesk.dock.tools`), at the foot of the dock
+// over the avatar, in the Dock's own tiles, when "Move Search and Notifications to Dock" is on
+// (`opendesk-dock-tools-on`). The sidebar's band of the same rows is hidden wherever the dock is
+// drawn -- beside the sidebar, or in the drawer with it below 768px when "Show Dock on Mobile" is
+// on; on pages without the dock, and on a phone without it, the band stays.
+body.opendesk-dock-tools-on .dock .opendesk-dock-tools {
 	flex: 0 0 auto;
 	display: flex;
 	flex-direction: column;
@@ -175,7 +176,7 @@ body.opendesk-rail-tools-on .dock .opendesk-rail-tools {
 	}
 
 	// The unread count, as a small badge on the bell's corner; another app's tile's badge the same way.
-	.opendesk-rail-count {
+	.opendesk-dock-count {
 		position: absolute;
 		top: 2px;
 		right: 2px;
@@ -191,29 +192,114 @@ body.opendesk-rail-tools-on .dock .opendesk-rail-tools {
 	}
 }
 
-@media (min-width: 768px) {
-	body.opendesk-rail-tools-on.dock-active .body-sidebar .standard-items-band {
+@mixin without-standard-items-band {
+	.body-sidebar .standard-items-band {
 		display: none;
 	}
 
 	// The band's bottom margin was what held the header and the rows apart; the same 14px, back.
-	body.opendesk-rail-tools-on.dock-active .body-sidebar .body-sidebar-top {
+	.body-sidebar .body-sidebar-top {
 		margin-top: 14px;
+	}
+}
+
+@media (max-width: 767px) {
+	body.opendesk-dock-tools-on.opendesk-mobile-dock-on.dock-active {
+		@include without-standard-items-band;
+	}
+}
+
+@media (min-width: 768px) {
+	body.opendesk-dock-tools-on.dock-active {
+		@include without-standard-items-band;
 	}
 
 	// Frappe's drawers (Notifications, and any other app's `SidebarPanel`) open past the sidebar,
-	// because their triggers were in it. Theirs are on the rail now, so they open beside the rail,
+	// because their triggers were in it. Theirs are on the dock now, so they open beside the dock,
 	// over the sidebar: the
-	// drawers mount in the sidebar's container, whose left edge is the rail's right edge. Frappe
+	// drawers mount in the sidebar's container, whose left edge is the dock's right edge. Frappe
 	// stacks them under the sidebar (1000 to its 1020), since they never overlapped it; now they
 	// do, so they go one step over it.
-	body.opendesk-rail-tools-on.dock-pinned.dock-active
+	body.opendesk-dock-tools-on.dock-pinned.dock-active
 		.body-sidebar-container.expanded
 		.sidebar-panel {
 		left: 0;
 		// Over the sidebar's edge (1022) and its collapse arrow (1023), which sit inside the drawer
-		// once it opens over the sidebar; under the rail (1030).
+		// once it opens over the sidebar; under the dock (1030).
 		z-index: 1024;
+	}
+}
+
+// Below 768px Frappe hides the Dock and makes the sidebar a drawer over the page, opened from the
+// page head's button. With "Show Dock on Mobile" (`opendesk-mobile-dock-on`) the dock goes into the
+// drawer: a column at the window's left edge, the
+// sidebar beside it and the scrim past both, coming and going with the drawer's rows as Frappe
+// fades them. The script pins the dock there (`should_pin`), so it is Frappe's pinned column, the
+// avatar at its foot, and the sidebar's own avatar row goes. A panel opened from the dock
+// (Notifications, say) takes the screen, as Frappe's do on a phone: it takes the drawer's
+// `expanded` off, and the dock goes with the drawer. 767px is the edge of Bootstrap's md, as in
+// dock.scss.
+@media (max-width: 767px) {
+	body.opendesk-mobile-dock-on.dock-active {
+		--opendesk-drawer-dock: calc(var(--dock-width, 56px) + 1px);
+
+		.dock:not(.hidden) {
+			display: flex;
+			position: fixed;
+			top: 0;
+			bottom: 0;
+			left: 0;
+			width: var(--opendesk-drawer-dock);
+			height: auto;
+			max-height: none;
+			z-index: 1030;
+			border-right: 1px solid var(--outline-gray-1);
+			transform: translateX(-12px);
+			opacity: 0;
+			visibility: hidden;
+			pointer-events: none;
+			// Gone from the tab order and the accessibility tree once it has faded.
+			transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease,
+				visibility 0s linear 0.25s;
+		}
+
+		&:has(.body-sidebar-container.expanded) .dock:not(.hidden) {
+			transform: none;
+			opacity: 1;
+			visibility: visible;
+			pointer-events: auto;
+			transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+		}
+
+		.body-sidebar {
+			left: var(--opendesk-drawer-dock);
+		}
+
+		.body-sidebar-container.expanded .overlay {
+			left: calc(var(--opendesk-drawer-dock) + var(--sidebar-width));
+			width: calc(100vw - var(--opendesk-drawer-dock) - var(--sidebar-width));
+		}
+
+		.body-sidebar .dropdown-navbar-user {
+			display: none;
+		}
+
+		// The rows slide in with the rest of the drawer. Frappe's own rule for their band passes
+		// `transition(all, 0.3s, ...)` with commas, which makes three transitions of `all`, the
+		// last lasting 0s, and outranks the drawer's: the rows appeared at once while the header,
+		// the avatar row and the dock slid in.
+		.body-sidebar .body-sidebar-top {
+			transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+		}
+	}
+}
+
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+	body.opendesk-mobile-dock-on.dock-active {
+		.dock:not(.hidden),
+		.body-sidebar .body-sidebar-top {
+			transition: none !important;
+		}
 	}
 }
 
@@ -255,7 +341,7 @@ body .modal .opendesk-arrange-letter {
 }
 
 // Manage Desk Apps' row controls (`js/arrange.js`): small buttons beside the eye, and the preview's
-// switch between the rail and the Apps screen.
+// switch between the dock and the Apps screen.
 // Each row: the app's name over a muted line of detail -- its modules, as a link, and notes --
 // then its Apps Screen setting at the right, beside the eye.
 .opendesk-row-text {
@@ -356,7 +442,7 @@ body .modal .opendesk-arrange-letter {
 }
 
 // The module column (see "Three Column" in the script): the app's modules in a column of their
-// own, between the rail and the sidebar. In flow, so the page starts after it; folded it keeps
+// own, between the dock and the sidebar. In flow, so the page starts after it; folded it keeps
 // only its icons, and a folded column that peeks opens its panel over the sidebar instead of
 // moving the page. The rows borrow the sidebar's own look.
 :root {
@@ -393,7 +479,7 @@ body.opendesk-column-on .opendesk-module-column:not(.hidden) {
 	background: var(--desk-sidebar-bg);
 	border-right: 1px solid var(--outline-gray-1);
 	overflow: hidden;
-	// Over the sidebar (1020) when it peeks, under the rail (1030) and the menus.
+	// Over the sidebar (1020) when it peeks, under the dock (1030) and the menus.
 	z-index: 1021;
 	transition: width 0.2s ease-in-out, box-shadow 0.2s ease;
 
@@ -556,7 +642,7 @@ body.opendesk-column-on .opendesk-module-column:not(.hidden) {
 	}
 }
 
-// Below 768px Frappe hides the rail, and the column goes with it at once, before the script has
+// Below 768px Frappe hides the dock, and the column goes with it at once, before the script has
 // redrawn it (`resize.opendesk-beside`). 767px is the edge of Bootstrap's md, as in dock.scss.
 @media (max-width: 767px) {
 	body.opendesk-column-on .opendesk-module-column:not(.hidden) {
@@ -572,8 +658,8 @@ body.opendesk-column-on .opendesk-module-column:not(.hidden) {
 }
 
 // The band of module tabs (see "Module Tabs" in the script): the app's modules across the top, over
-// the sidebar and the page, right of the rail. Fixed rather than in flow, because the body is a row
-// of columns (rail, sidebar, page); the sidebar and the page are moved down under it and made that
+// the sidebar and the page, right of the dock. Fixed rather than in flow, because the body is a row
+// of columns (dock, sidebar, page); the sidebar and the page are moved down under it and made that
 // much shorter instead, so the page is still the box that scrolls and Frappe's sticky page head
 // still sticks to its top.
 :root {
@@ -597,7 +683,7 @@ body.opendesk-tabs-on {
 		padding: 0 8px 0 12px;
 		background: var(--desk-sidebar-bg);
 		border-bottom: 1px solid var(--outline-gray-1);
-		// Over the sidebar (1020) and its drawers, under the rail (1030) and the menus.
+		// Over the sidebar (1020) and its drawers, under the dock (1030) and the menus.
 		z-index: 1022;
 		transition: background 0.2s ease;
 
@@ -608,7 +694,7 @@ body.opendesk-tabs-on {
 		}
 	}
 
-	// Beside a pinned rail the band starts where the rail ends; a floating rail is drawn over it.
+	// Beside a pinned dock the band starts where the dock ends; a floating dock is drawn over it.
 	&.dock-pinned.dock-active .opendesk-module-tabs {
 		left: calc(var(--dock-width) + 1px);
 	}
@@ -826,10 +912,10 @@ body.opendesk-tabs-on {
 	}
 }
 
-// App Menu: the rail's mark is the app's, so the sidebar's header is its words alone, starting
-// where the rows' icons do. Twice: once for a floating rail, and again beside a pinned one, scoped
+// App Menu: the dock's mark is the app's, so the sidebar's header is its words alone, starting
+// where the rows' icons do. Twice: once for a floating dock, and again beside a pinned one, scoped
 // as the rule above that shows the mark there, so as to win over it.
-body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no-mark {
+body.opendesk-dock-on .body-sidebar-container .sidebar-header.opendesk-header-no-mark {
 	padding-left: 12px;
 
 	.header-logo {
@@ -838,7 +924,7 @@ body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no
 }
 
 @media (min-width: 768px) {
-	body.opendesk-rail-on.dock-pinned.dock-active
+	body.opendesk-dock-on.dock-pinned.dock-active
 		.body-sidebar-container.expanded
 		.sidebar-header.opendesk-header-no-mark {
 		padding-left: 12px;
@@ -849,8 +935,8 @@ body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no
 	}
 }
 
-// App Menu (see the script): a rule between groups of the app's modules on the rail.
-.opendesk-rail-rule {
+// App Menu (see the script): a rule between groups of the app's modules on the dock.
+.opendesk-dock-rule {
 	flex: 0 0 auto;
 	width: 24px;
 	height: 1px;
@@ -858,10 +944,10 @@ body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no
 	background: var(--opendesk-rule);
 }
 
-// Accordion Rail (see the script): the open app's modules under its tile, a smaller tile each, on
+// Accordion Dock (see the script): the open app's modules under its tile, a smaller tile each, on
 // a tray of their own so they read as the app's and not as more apps. The tray slides open and
 // shut by its rows, so nothing has to know its height.
-.opendesk-rail-group {
+.opendesk-dock-group {
 	display: grid;
 	flex: 0 0 auto;
 	grid-template-rows: 1fr;
@@ -872,7 +958,7 @@ body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no
 	background: var(--opendesk-tile-hover);
 	transition: grid-template-rows 0.25s ease-in-out, opacity 0.2s ease, margin 0.25s ease-in-out;
 
-	&.opendesk-rail-group-folded {
+	&.opendesk-dock-group-folded {
 		grid-template-rows: 0fr;
 		opacity: 0;
 		// Folded, it gives back the gap it took between two apps as well.
@@ -880,7 +966,7 @@ body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no
 	}
 }
 
-.opendesk-rail-group-inner {
+.opendesk-dock-group-inner {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -896,7 +982,7 @@ body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no
 	}
 }
 
-.opendesk-rail-module {
+.opendesk-dock-module {
 	display: flex;
 	flex: 0 0 auto;
 	align-items: center;
@@ -923,7 +1009,7 @@ body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no
 	}
 }
 
-.opendesk-rail-group-rule {
+.opendesk-dock-group-rule {
 	flex: 0 0 auto;
 	width: 16px;
 	height: 1px;
@@ -1037,7 +1123,7 @@ body.opendesk-rail-on .body-sidebar-container .sidebar-header.opendesk-header-no
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.opendesk-rail-group,
+	.opendesk-dock-group,
 	.opendesk-accordion-content,
 	.opendesk-accordion-module .sidebar-item-control .icon {
 		transition: none !important;

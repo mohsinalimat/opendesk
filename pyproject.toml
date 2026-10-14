@@ -4,7 +4,7 @@ authors = [
     { name = "Peter", email = "peter@theopen.institute"}
 ]
 license = { file = "license.txt" }
-description = "An app rail and other desk navigation extensions for Frappe"
+description = "An app dock and other desk navigation extensions for Frappe"
 requires-python = ">=3.14"
 readme = "README.md"
 dynamic = ["version"]
@@ -19,7 +19,7 @@ build-backend = "flit_core.buildapi"
 # Frappe Cloud uses this to pick a compatible Frappe version when installing the app
 [tool.bench.frappe-dependencies]
 frappe = ">=16.50.0,<17.0.0"
-# 16.50 because the rail is built on its Dock, Sidebar and Apps screen; see
+# 16.50 because the dock is built on its Dock, Sidebar and Apps screen; see
 # `opendesk/open_desk/test_frappe_seams.py` for every name it hangs on.
 
 # These dependencies are only installed when developer mode is enabled

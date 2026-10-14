@@ -1,13 +1,13 @@
-// The rail's two editors, in Frappe's own arrangement editor.
+// The dock's two editors, in Frappe's own arrangement editor.
 //
 // `frappe.ui.ArrangementEditor` is the one editor Frappe 16.50 has for "an ordered list of entries
 // more than one party can arrange" -- Manage Dock and Edit Sidebar are both built on it. It holds
 // the list, the drag, the eye, the preview, the layer switch and the save; a surface supplies what
 // its entries are and where they are read from and written to. These are two more surfaces:
 //
-//   Manage Desk Apps     the apps on the rail, in order; the eye takes one off it (Hide from Rail).
+//   Manage Desk Apps     the apps on the dock, in order; the eye takes one off it (Hide from Dock).
 //                   Each row opens that app's Manage Modules and says how the app shows on the
-//                   Apps screen, and the preview shows either the rail or the Apps screen. Add
+//                   Apps screen, and the preview shows either the dock or the Apps screen. Add
 //                   makes a new app, whose modules are drafted from its row and saved with it.
 //   Manage Modules  one app's module list: order, Category and Spacer rows, and the eye, which
 //                   takes a module off this app's list (an installed app's own module then goes
@@ -19,7 +19,7 @@
 // There is one layer, the site's ("For everyone"): Desk Apps are site records.
 //
 // The editor is not in the desk bundle (Frappe loads it on demand, as Manage Dock does), so the
-// two classes are defined once it has loaded. Off unless the rail or the Apps screen is switched
+// two classes are defined once it has loaded. Off unless the dock or the Apps screen is switched
 // on; with only the Apps screen, it is about the Apps screen alone.
 //
 // Manage Desk Apps also opens from the Apps screen's own avatar menu, through the entry point
@@ -27,9 +27,9 @@
 // `desktop_screen` event it fires as it sets up).
 (function () {
 	const features = (frappe.boot && frappe.boot.opendesk_features) || {};
-	if (!features.navigation_rail && !features.apps_screen) return;
+	if (!features.dock && !features.apps_screen) return;
 
-	frappe.provide("opendesk.rail");
+	frappe.provide("opendesk.dock");
 
 	const METHOD = "opendesk.open_desk.arrange";
 	let editors = null;
@@ -123,13 +123,13 @@
 		}
 	}
 
-	opendesk.rail.manage_rail = () =>
+	opendesk.dock.manage_dock = () =>
 		load()
-			.then(({ RailEditor }) => removed_on_close(new RailEditor()))
+			.then(({ DockEditor }) => removed_on_close(new DockEditor()))
 			.catch(failed);
 
 	// `on_saved` runs once the editor has saved (Manage Desk Apps refreshes its row from it).
-	opendesk.rail.manage_modules = (app_key, { on_saved } = {}) =>
+	opendesk.dock.manage_modules = (app_key, { on_saved } = {}) =>
 		load()
 			.then(({ ModulesEditor }) => {
 				// The base class builds the dialog in its constructor, so the app it is about is
@@ -142,7 +142,7 @@
 	// Manage Modules for an app Manage Desk Apps has added but not saved: `{title, rows, on_done}`.
 	// Nothing is stored; Save hands the rows back (`on_done`), and Manage Desk Apps' own Save makes the
 	// app and its modules together.
-	opendesk.rail.draft_modules = (draft) =>
+	opendesk.dock.draft_modules = (draft) =>
 		load()
 			.then(({ ModulesEditor }) => {
 				ModulesEditor.next = { draft };
@@ -152,29 +152,29 @@
 
 	// Whether this user may write the records both editors save to, and make new ones: what the
 	// server asks of them (`arrange._check`).
-	opendesk.rail.can_manage = () =>
+	opendesk.dock.can_manage = () =>
 		!!(frappe.model.can_write && frappe.model.can_create) &&
 		frappe.model.can_write("Desk App") &&
 		frappe.model.can_create("Desk App");
 
 	// What the editor is called, in both menus and over its dialog: it arranges the Desk Apps, on
-	// the rail and on the Apps screen.
+	// the dock and on the Apps screen.
 	const MANAGE_LABEL = "Manage Desk Apps";
 
 	$(document).on("desktop_screen", (event, data) => {
 		const desktop = data && data.desktop;
 		if (!desktop || typeof desktop.add_menu_item !== "function") return;
-		if (!opendesk.rail.can_manage()) return;
+		if (!opendesk.dock.can_manage()) return;
 		// Frappe translates the label; a second call with the same one adds nothing.
 		desktop.add_menu_item({
 			icon: "layout-grid",
 			label: MANAGE_LABEL,
 			order: 25,
-			onclick: () => opendesk.rail.manage_rail(),
+			onclick: () => opendesk.dock.manage_dock(),
 		});
 	});
 
-	// After a save: the rail redraws itself (`opendesk.rail.apply`); without it, the boot takes
+	// After a save: the dock redraws itself (`opendesk.dock.apply`); without it, the boot takes
 	// the new arrangement here. Either way an Apps screen on screen is drawn again from it.
 	//
 	// The server has stored the save by now, so nothing here may keep the dialog open: if drawing
@@ -204,8 +204,8 @@
 			frappe.boot.workspaces = payload.workspaces;
 			frappe.app.setup_workspaces();
 		}
-		if (opendesk.rail.apply) {
-			opendesk.rail.apply(payload);
+		if (opendesk.dock.apply) {
+			opendesk.dock.apply(payload);
 		} else if (opendesk.boot_arrangement && opendesk.boot_arrangement.adopt) {
 			// Manage Modules reads app titles from here (`prepare`).
 			if (payload.desk_apps) frappe.boot.desk_apps = payload.desk_apps;
@@ -237,7 +237,7 @@
 
 		// The letter tile Frappe draws for something with no mark of its own. Frappe's editor sizes
 		// the icons in its rows but not this tile's box, which then takes the Apps screen's size;
-		// the class lets `rail.scss` hold it to the rows' 18px.
+		// the class lets `dock.scss` hold it to the rows' 18px.
 		function letter_tile(label) {
 			return `<span class="opendesk-arrange-letter">${frappe.utils.desktop_icon(
 				label,
@@ -247,7 +247,7 @@
 			)}</span>`;
 		}
 
-		// An app's mark, as the rail draws it: its logo, else its icon, else a letter tile.
+		// An app's mark, as the dock draws it: its logo, else its icon, else a letter tile.
 		function app_mark(entry) {
 			if (entry.logo) {
 				return `<img src="${frappe.utils.escape_html(
@@ -279,14 +279,14 @@
 			</div>`;
 		}
 
-		class RailEditor extends Base {
+		class DockEditor extends Base {
 			get layers() {
 				return {
 					site: {
-						read: `${METHOD}.get_rail`,
-						save: `${METHOD}.save_rail`,
+						read: `${METHOD}.get_dock`,
+						save: `${METHOD}.save_dock`,
 						label: () => __("For everyone"),
-						saved: () => __("Rail updated for everyone"),
+						saved: () => __("Dock updated for everyone"),
 					},
 				};
 			}
@@ -320,7 +320,7 @@
 							fieldtype: "Data",
 							label: __("Title"),
 							description: __(
-								"What the rail's tooltip and the sidebar header call it."
+								"What the dock's tooltip and the sidebar header call it."
 							),
 						},
 						{
@@ -375,14 +375,14 @@
 					list_head: __("Apps"),
 					add_label: __("New Desk App"),
 					list_sub: __(
-						"Drag to reorder. The eye takes an app off the rail. A new app shows on the rail once it has modules."
+						"Drag to reorder. The eye takes an app off the dock. A new app shows on the dock once it has modules."
 					),
-					reset_title: __("Put every app back on the rail."),
+					reset_title: __("Put every app back on the dock."),
 					list_empty: __("There are no apps"),
 					preview_head: __("Preview"),
-					preview_sub: __("The rail as this arrangement leaves it."),
-					preview_empty: __("Nothing on the rail"),
-					load_error: __("Could not load the rail. Please try again."),
+					preview_sub: __("The dock as this arrangement leaves it."),
+					preview_empty: __("Nothing on the dock"),
+					load_error: __("Could not load the dock. Please try again."),
 				};
 			}
 
@@ -427,14 +427,14 @@
 				return app_mark(entry);
 			}
 
-			// The preview shows the rail, or the Apps screen as this arrangement leaves it -- the
+			// The preview shows the dock, or the Apps screen as this arrangement leaves it -- the
 			// one that is switched on, or either when both are.
 			render() {
-				this.view = this.view || (features.navigation_rail ? "rail" : "screen");
+				this.view = this.view || (features.dock ? "dock" : "screen");
 				super.render();
-				if (!features.navigation_rail || !features.apps_screen) return;
+				if (!features.dock || !features.apps_screen) return;
 				const $switch = $(`<span class="opendesk-preview-switch">
-					<button class="btn btn-xs" data-view="rail">${__("Rail")}</button>
+					<button class="btn btn-xs" data-view="dock">${__("Dock")}</button>
 					<button class="btn btn-xs" data-view="screen">${__("Apps screen")}</button>
 				</span>`).appendTo(this.$body.find(".ws-pane-preview .ws-pane-head"));
 				$switch.find("button").on("click", (event) => {
@@ -551,7 +551,7 @@
 					});
 					return;
 				}
-				// Hidden, and Frappe lists it nowhere: modules given to it would leave the rail with
+				// Hidden, and Frappe lists it nowhere: modules given to it would leave the dock with
 				// it, for everyone (`arrange._store_app_modules` refuses as well).
 				if (entry.unlisted && this.hidden.has(key)) {
 					frappe.show_alert({
@@ -561,7 +561,7 @@
 					return;
 				}
 				if (!entry.new) {
-					opendesk.rail.manage_modules(key, {
+					opendesk.dock.manage_modules(key, {
 						on_saved: ({ read, saved } = {}) => {
 							// That save is one this editor would otherwise refuse to save over.
 							// Only when nobody else's came before it: Manage Modules read the
@@ -575,7 +575,7 @@
 					});
 					return;
 				}
-				opendesk.rail.draft_modules({
+				opendesk.dock.draft_modules({
 					title: entry.label,
 					rows: entry.draft_rows,
 					on_done: (rows) => {
@@ -605,7 +605,7 @@
 			}
 
 			// Each row's Apps Screen setting, as a button opening the choices. An app off the
-			// rail is off the Apps screen too, so its row has no setting until it is back.
+			// dock is off the Apps screen too, so its row has no setting until it is back.
 			decorate_item($el, key) {
 				// The name over its line of detail, in one column where the name was.
 				const $label = $el.find(".ws-item-label").first();
@@ -613,7 +613,7 @@
 					.insertBefore($label)
 					.append($label)
 					.append(this.sub_line(key));
-				// Off the rail only because Frappe lists it nowhere: where its Apps Screen setting
+				// Off the dock only because Frappe lists it nowhere: where its Apps Screen setting
 				// would be, greyed, where its modules are.
 				if (this.entries.get(key).unlisted && this.hidden.has(key)) {
 					$('<span class="opendesk-screen-mode opendesk-in-other"></span>')
@@ -658,10 +658,10 @@
 			}
 
 			hide_tooltip(key, hidden) {
-				return hidden ? __("Put back on the rail") : __("Take off the rail");
+				return hidden ? __("Put back on the dock") : __("Take off the dock");
 			}
 
-			// Back to the defaults: every app on the rail, but those Frappe lists nowhere, which
+			// Back to the defaults: every app on the dock, but those Frappe lists nowhere, which
 			// are hidden until someone shows them.
 			reset() {
 				this.hidden = new Set(
@@ -724,7 +724,7 @@
 				this.draft = next.draft || null;
 				this.on_saved = next.on_saved;
 				this.app_key = next.key;
-				// A new app with no modules is not on the rail yet; its title is read with its rows.
+				// A new app with no modules is not on the dock yet; its title is read with its rows.
 				this.app = (frappe.boot.desk_apps || []).find((a) => a.key === this.app_key);
 				this.can_curate_site = true;
 				this.next_marker = 0;
@@ -1118,6 +1118,6 @@
 			}
 		}
 
-		return { RailEditor, ModulesEditor };
+		return { DockEditor, ModulesEditor };
 	}
 })();

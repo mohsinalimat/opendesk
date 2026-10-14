@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Peter and contributors
 # For license information, please see license.txt
 
-"""The rail's rules, over plain data.
+"""The dock's rules, over plain data.
 
 `resolve` takes everything it reads as arguments, so each rule in the module
 docstring is one small table here: the fallback, the one-app rule, roles that
@@ -56,7 +56,7 @@ SIDEBARS = [
 MODULES = {"students": "education", "assessments": "commons"}
 
 
-def rail(
+def dock(
 	configured=(),
 	user="someone@example.com",
 	roles=("Desk User",),
@@ -111,7 +111,7 @@ def layout(entry):
 
 
 def titled(result, title):
-	"""One rail entry by its title: a bound record sits at its installed app's place, not first."""
+	"""One dock entry by its title: a bound record sits at its installed app's place, not first."""
 	return next(entry for entry in result if entry["title"] == title)
 
 
@@ -122,7 +122,7 @@ def shape(result):
 class TestFallback(TestCase):
 	def test_nothing_configured_is_one_entry_per_installed_app(self):
 		self.assertEqual(
-			shape(rail()),
+			shape(dock()),
 			[
 				("Frappe Framework", ["Users"]),
 				("ERPNext", ["Accounting", "Stock"]),
@@ -134,7 +134,7 @@ class TestFallback(TestCase):
 		)
 
 	def test_installed_apps_are_marked_and_keyed_apart_from_configured_ones(self):
-		entry = rail()[1]
+		entry = dock()[1]
 		self.assertEqual(entry["key"], "app:erpnext")
 		self.assertFalse(entry["configured"])
 		self.assertEqual(entry["logo"], "/erpnext.svg")
@@ -152,28 +152,28 @@ class TestUnlistedApps(TestCase):
 	LISTED = ("frappe", "erpnext", "commons")
 
 	def test_its_modules_go_to_other_and_it_has_no_entry(self):
-		result = rail(listed=self.LISTED)
+		result = dock(listed=self.LISTED)
 		self.assertNotIn("app:education", [e["key"] for e in result])
 		other = next(e for e in result if e["key"] == "app:Other")
 		self.assertEqual({m["shell"] for m in other["modules"]}, {"Education", "Students", "Helpdesk"})
 
 	def test_a_desk_app_standing_for_it_brings_it_back(self):
-		result = rail([bound("School", "education")], listed=self.LISTED)
+		result = dock([bound("School", "education")], listed=self.LISTED)
 		self.assertEqual({m["shell"] for m in titled(result, "School")["modules"]}, {"Education", "Students"})
 		other = next(e for e in result if e["key"] == "app:Other")
 		self.assertEqual([m["shell"] for m in other["modules"]], ["Helpdesk"])
 
-	def test_an_editor_still_lists_it_off_the_rail(self):
-		entry = next(e for e in rail(listed=self.LISTED, everything=True) if e["key"] == "app:education")
+	def test_an_editor_still_lists_it_off_the_dock(self):
+		entry = next(e for e in dock(listed=self.LISTED, everything=True) if e["key"] == "app:education")
 		self.assertEqual((entry["hidden"], entry["unlisted"], entry["modules"]), (True, True, []))
 
 	def test_not_given_every_installed_app_is_listed(self):
-		self.assertIn("app:education", [e["key"] for e in rail()])
+		self.assertIn("app:education", [e["key"] for e in dock()])
 
 
 class TestConfigured(TestCase):
 	def test_configured_apps_come_first_with_their_modules_in_table_order(self):
-		result = rail([app("Finance", "Stock", "Accounting"), app("School", "Students", "Assessments")])
+		result = dock([app("Finance", "Stock", "Accounting"), app("School", "Students", "Assessments")])
 		self.assertEqual(
 			shape(result),
 			[
@@ -191,12 +191,12 @@ class TestConfigured(TestCase):
 	def test_apps_screen_is_passed_on(self):
 		configured = app("Finance", "Accounting")
 		configured["apps_screen"] = "Icon per Module"
-		self.assertEqual(rail([configured])[0]["apps_screen"], "Icon per Module")
-		self.assertIsNone(rail([app("Finance", "Accounting")])[0]["apps_screen"])
+		self.assertEqual(dock([configured])[0]["apps_screen"], "Icon per Module")
+		self.assertIsNone(dock([app("Finance", "Accounting")])[0]["apps_screen"])
 
 	def test_desktop_image_is_carried_only_when_set(self):
 		row = {"module": "Accounting", "label": None, "desktop_image": "/files/books.png"}
-		entry = rail([app("Finance", row, "Stock")])[0]
+		entry = dock([app("Finance", row, "Stock")])[0]
 		by_name = {s["shell"]: s for s in entry["modules"]}
 		self.assertEqual(by_name["Accounting"]["desktop_image"], "/files/books.png")
 		self.assertNotIn("desktop_image", by_name["Stock"])
@@ -204,24 +204,24 @@ class TestConfigured(TestCase):
 	def test_a_module_is_called_what_its_sidebar_is(self):
 		# A label left on a module row from before is not a name for it.
 		row = {"module": "Accounting", "label": "Books"}
-		entry = rail([app("Finance", row)])[0]
+		entry = dock([app("Finance", row)])[0]
 		self.assertEqual(entry["modules"][0], {"shell": "Accounting", "label": "Accounting", "icon": None})
 
 	def test_first_claim_wins(self):
-		result = rail([app("Finance", "Stock"), app("Warehouse", "Stock", "Accounting")])
+		result = dock([app("Finance", "Stock"), app("Warehouse", "Stock", "Accounting")])
 		self.assertEqual(shape(result)[:2], [("Finance", ["Stock"]), ("Warehouse", ["Accounting"])])
 
 	def test_an_app_with_nothing_left_is_dropped(self):
-		result = rail([app("Gone", "Deleted Module")])
+		result = dock([app("Gone", "Deleted Module")])
 		self.assertNotIn("Gone", [entry["title"] for entry in result])
 
 	def test_roles_hide_the_app_without_releasing_its_sidebars(self):
-		result = rail([app("Finance", "Accounting", "Stock", roles=["Accounts User"])])
+		result = dock([app("Finance", "Accounting", "Stock", roles=["Accounts User"])])
 		self.assertNotIn("Finance", [entry["title"] for entry in result])
 		# Not back under ERPNext either: the restriction would only have moved them.
 		self.assertNotIn("ERPNext", [entry["title"] for entry in result])
 
-		allowed = rail([app("Finance", "Accounting", roles=["Accounts User"])], roles=["Accounts User"])
+		allowed = dock([app("Finance", "Accounting", roles=["Accounts User"])], roles=["Accounts User"])
 		self.assertEqual(allowed[0]["title"], "Finance")
 
 
@@ -237,21 +237,21 @@ class TestModules(TestCase):
 	"""A row claims a module, which is every shell the boot has for it."""
 
 	def test_a_row_claims_every_shell_of_its_module(self):
-		result = rail([app("QA", "Quality Management")], sidebars=SHELLS)
+		result = dock([app("QA", "Quality Management")], sidebars=SHELLS)
 		self.assertEqual(shape(result)[0], ("QA", ["Quality", "Audits"]))
 		self.assertNotIn("Quality", shape(result)[2][1])
 
 	def test_each_shell_keeps_its_own_label(self):
-		entry = rail([app("QA", "Quality Management")], sidebars=SHELLS)[0]
+		entry = dock([app("QA", "Quality Management")], sidebars=SHELLS)[0]
 		self.assertEqual([s["label"] for s in entry["modules"]], ["Quality", "Audits"])
 
 	def test_a_renamed_shell_is_claimed_by_its_module_not_its_name(self):
-		result = rail([app("QA", "Quality")], sidebars=SHELLS)
+		result = dock([app("QA", "Quality")], sidebars=SHELLS)
 		self.assertNotIn("QA", [entry["title"] for entry in result])
 
 	def test_unlabelled_modules_take_the_sidebars_label(self):
 		shells = [sidebar("Loan Management", app="erpnext", label="Lending")]
-		self.assertEqual(rail(sidebars=shells)[0]["modules"][0]["label"], "Lending")
+		self.assertEqual(dock(sidebars=shells)[0]["modules"][0]["label"], "Lending")
 
 
 COMPANION_SHELLS = [sidebar("Accounting", app="erpnext"), sidebar("GST", app="india_compliance")]
@@ -263,19 +263,19 @@ class TestCompanionApps(TestCase):
 
 	def test_grouped_under_the_host(self):
 		self.assertEqual(
-			dict(shape(rail(sidebars=COMPANION_SHELLS, hosts=HOSTS)))["ERPNext"], ["Accounting", "GST"]
+			dict(shape(dock(sidebars=COMPANION_SHELLS, hosts=HOSTS)))["ERPNext"], ["Accounting", "GST"]
 		)
 
 	def test_without_a_mount_it_is_not_an_installed_app(self):
-		self.assertEqual(dict(shape(rail(sidebars=COMPANION_SHELLS)))[OTHER], ["GST"])
+		self.assertEqual(dict(shape(dock(sidebars=COMPANION_SHELLS)))[OTHER], ["GST"])
 
 	def test_a_desk_app_still_claims_it(self):
-		result = rail([app("Tax", "GST")], sidebars=COMPANION_SHELLS, hosts=HOSTS)
+		result = dock([app("Tax", "GST")], sidebars=COMPANION_SHELLS, hosts=HOSTS)
 		self.assertEqual(shape(result)[0], ("Tax", ["GST"]))
 
 
 class FakeClientCache:
-	"""`frappe.client_cache`'s two calls the rail makes, over a dict."""
+	"""`frappe.client_cache`'s two calls the dock makes, over a dict."""
 
 	def __init__(self):
 		self.store = {}
@@ -315,7 +315,7 @@ class SiteInputsAreCached(TestCase):
 
 
 class ActiveApps(TestCase):
-	"""Frappe 17 can switch an installed app off; the rail follows it where Frappe can."""
+	"""Frappe 17 can switch an installed app off; the dock follows it where Frappe can."""
 
 	def active(self, get_active_apps):
 		from unittest.mock import patch
@@ -377,7 +377,7 @@ class TestBoundApps(TestCase):
 	"""A Desk App standing for an installed app, or for Other."""
 
 	def test_takes_the_installed_apps_place_and_keeps_its_modules(self):
-		result = rail([bound("Books", "erpnext")])
+		result = dock([bound("Books", "erpnext")])
 		# ERPNext's place: after Frappe, as installed.
 		self.assertEqual(shape(result)[1], ("Books", ["Accounting", "Stock"]))
 		# Not drawn a second time among the installed apps.
@@ -387,23 +387,23 @@ class TestBoundApps(TestCase):
 
 	def test_add_mode_adds(self):
 		books = bound("Books", "erpnext", "Stock", "Students")
-		entry = titled(rail([books]), "Books")
+		entry = titled(dock([books]), "Books")
 		# The listed ones in table order, then what ERPNext already held.
 		self.assertEqual([s["shell"] for s in entry["modules"]], ["Stock", "Students", "Accounting"])
 		# Claimed away from Education.
-		self.assertIn(("Education", ["Education"]), shape(rail([books])))
+		self.assertIn(("Education", ["Education"]), shape(dock([books])))
 
 	def test_replace_mode_keeps_only_the_list_and_sends_the_rest_to_other(self):
-		result = shape(rail([bound("Books", "erpnext", "Stock", mode="Replace")]))
+		result = shape(dock([bound("Books", "erpnext", "Stock", mode="Replace")]))
 		self.assertEqual(dict(result)["Books"], ["Stock"])
 		self.assertEqual(result[-1], (OTHER, ["Accounting", "Helpdesk"]))
 
 	def test_another_app_claiming_one_of_its_sidebars_takes_it(self):
-		result = dict(shape(rail([bound("Books", "erpnext"), app("Stores", "Stock")])))
+		result = dict(shape(dock([bound("Books", "erpnext"), app("Stores", "Stock")])))
 		self.assertEqual((result["Books"], result["Stores"]), (["Accounting"], ["Stock"]))
 
-	def test_hidden_takes_the_app_and_its_sidebars_off_the_rail(self):
-		result = shape(rail([bound("Books", "erpnext", "Students", hidden=1)]))
+	def test_hidden_takes_the_app_and_its_sidebars_off_the_dock(self):
+		result = shape(dock([bound("Books", "erpnext", "Students", hidden=1)]))
 		self.assertNotIn("Books", [title for title, _ in result])
 		self.assertNotIn("ERPNext", [title for title, _ in result])
 		self.assertFalse(any(s in ("Accounting", "Stock", "Students") for _, row in result for s in row))
@@ -411,36 +411,36 @@ class TestBoundApps(TestCase):
 	def test_roles_hide_without_releasing(self):
 		books = bound("Books", "erpnext", roles=("Accounts User",))
 		self.assertEqual(
-			dict(shape(rail([books], roles=("Accounts User",))))["Books"], ["Accounting", "Stock"]
+			dict(shape(dock([books], roles=("Accounts User",))))["Books"], ["Accounting", "Stock"]
 		)
-		result = shape(rail([books]))
+		result = shape(dock([books]))
 		self.assertFalse(any(title in ("Books", "ERPNext") for title, _ in result))
 
 	def test_inherits_the_logo_and_frontend_unless_it_has_its_own(self):
-		entry = titled(rail([bound("Books", "erpnext")], frontends={"erpnext": "/shop"}), "Books")
+		entry = titled(dock([bound("Books", "erpnext")], frontends={"erpnext": "/shop"}), "Books")
 		self.assertEqual(entry["logo"], "/erpnext.svg")
 		self.assertEqual(entry["frontend"], {"label": "Books app", "url": "/shop"})
 		# An icon of its own is a mark of its own: the app's logo would cover it.
-		entry = titled(rail([bound("Books", "erpnext", icon="book")]), "Books")
+		entry = titled(dock([bound("Books", "erpnext", icon="book")]), "Books")
 		self.assertEqual((entry["icon"], entry["logo"]), ("book", None))
 		entry = titled(
-			rail([{**bound("Books", "erpnext"), "logo": "/books.svg", "frontend_url": "/books"}]), "Books"
+			dock([{**bound("Books", "erpnext"), "logo": "/books.svg", "frontend_url": "/books"}]), "Books"
 		)
 		self.assertEqual((entry["logo"], entry["frontend"]["url"]), ("/books.svg", "/books"))
 
 	def test_other_is_bindable(self):
-		result = rail([bound("Unsorted", OTHER)])
+		result = dock([bound("Unsorted", OTHER)])
 		# Other's place: last.
 		self.assertEqual(shape(result)[-1], ("Unsorted", ["Helpdesk"]))
 		self.assertEqual(result[-1]["key"], f"app:{OTHER}")
 		self.assertEqual(result[-1]["logo"], "/assets/opendesk/images/opendesk-other-logo.svg")
 		self.assertNotIn(OTHER, [entry["title"] for entry in result])
-		hidden = shape(rail([bound("Unsorted", OTHER, hidden=1)]))
+		hidden = shape(dock([bound("Unsorted", OTHER, hidden=1)]))
 		self.assertFalse(any(title in ("Unsorted", OTHER) for title, _ in hidden))
 
 	def test_other_replacing_drops_what_it_does_not_list(self):
 		result = shape(
-			rail(
+			dock(
 				[
 					bound("Books", "erpnext", "Stock", mode="Replace"),
 					bound("Unsorted", OTHER, "Users", mode="Replace"),
@@ -451,7 +451,7 @@ class TestBoundApps(TestCase):
 		self.assertFalse(any(s in ("Accounting", "Helpdesk") for _, row in result for s in row))
 
 	def test_only_the_first_record_for_an_app_stands_for_it(self):
-		result = rail([bound("Books", "erpnext"), bound("Ledger", "erpnext", "Stock")])
+		result = dock([bound("Books", "erpnext"), bound("Ledger", "erpnext", "Stock")])
 		self.assertEqual(
 			(dict(shape(result))["Books"], dict(shape(result))["Ledger"]), (["Accounting"], ["Stock"])
 		)
@@ -459,11 +459,11 @@ class TestBoundApps(TestCase):
 
 	def test_a_record_for_an_app_not_installed_waits_for_it(self):
 		# Its modules stay where they would be without it, and it is not drawn, even for an editor.
-		result = rail([bound("Desk", "helpdesk", "Helpdesk")])
+		result = dock([bound("Desk", "helpdesk", "Helpdesk")])
 		self.assertNotIn("desk-app:Desk", [app["key"] for app in result])
 		self.assertNotIn("Desk", [title for title, _modules in shape(result)])
 		self.assertNotIn(
-			"desk-app:Desk", [a["key"] for a in rail([bound("Desk", "helpdesk")], everything=True)]
+			"desk-app:Desk", [a["key"] for a in dock([bound("Desk", "helpdesk")], everything=True)]
 		)
 
 
@@ -481,21 +481,21 @@ class TestOrder(TestCase):
 	"""Chosen order where there is one; landing module, then alphabetical, where not."""
 
 	def test_home_then_the_app_named_module_go_first(self):
-		result = shape(rail(sidebars=LANDING))
+		result = shape(dock(sidebars=LANDING))
 		self.assertIn(("ERPNext", ["Home", "ERPNext", "Accounting", "Stock"]), result)
 		self.assertIn(("Education", ["Education", "Courses"]), result)
 
 	def test_a_landing_module_by_its_label_counts_too(self):
 		shells = [sidebar("Start", app="erpnext", label="Home"), *LANDING[:2]]
-		self.assertIn(("ERPNext", ["Start", "Accounting", "Stock"]), shape(rail(sidebars=shells)))
+		self.assertIn(("ERPNext", ["Start", "Accounting", "Stock"]), shape(dock(sidebars=shells)))
 
 	def test_the_table_order_is_kept_and_the_rest_follow(self):
-		entry = rail([bound("Books", "erpnext", "Stock", "Accounting")], sidebars=LANDING)[0]
+		entry = dock([bound("Books", "erpnext", "Stock", "Accounting")], sidebars=LANDING)[0]
 		# The record is called Books, but the app is still ERPNext: its module still lands first.
 		self.assertEqual([s["shell"] for s in entry["modules"]], ["Stock", "Accounting", "Home", "ERPNext"])
 
 	def test_a_synthetic_app_is_only_its_table(self):
-		entry = rail([app("Finance", "Stock", "Home", "Accounting")], sidebars=LANDING)[0]
+		entry = dock([app("Finance", "Stock", "Home", "Accounting")], sidebars=LANDING)[0]
 		self.assertEqual([s["shell"] for s in entry["modules"]], ["Stock", "Home", "Accounting"])
 
 
@@ -515,26 +515,26 @@ DOCKS = {"erpnext": {"order": ["Setup", "Accounting", "Selling", "CRM"], "hidden
 class TestShippedDocks(TestCase):
 	"""An installed app's shipped Dock orders and hides what nobody has configured."""
 
-	def test_the_dock_orders_then_the_rest_follow_in_the_rails_order(self):
-		result = dict(shape(rail(sidebars=DOCKED, docks=DOCKS)))
+	def test_the_dock_orders_then_the_rest_follow_in_the_docks_order(self):
+		result = dict(shape(dock(sidebars=DOCKED, docks=DOCKS)))
 		self.assertEqual(result["ERPNext"], ["Setup", "Accounting", "Selling", "Home", "Accounts (Custom)"])
 
-	def test_a_module_the_dock_hides_is_off_the_rail_not_in_other(self):
-		result = dict(shape(rail(sidebars=DOCKED, docks=DOCKS)))
+	def test_a_module_the_dock_hides_is_off_the_dock_not_in_other(self):
+		result = dict(shape(dock(sidebars=DOCKED, docks=DOCKS)))
 		self.assertNotIn("CRM", [shell for shells in result.values() for shell in shells])
 		result = dict(
-			shape(rail([bound("Books", "erpnext", "Setup", mode="Replace")], sidebars=DOCKED, docks=DOCKS))
+			shape(dock([bound("Books", "erpnext", "Setup", mode="Replace")], sidebars=DOCKED, docks=DOCKS))
 		)
 		self.assertNotIn("CRM", result.get(OTHER, []))
 
 	def test_listing_a_hidden_module_puts_it_back(self):
-		entry = rail([bound("Books", "erpnext", "CRM")], sidebars=DOCKED, docks=DOCKS)[0]
+		entry = dock([bound("Books", "erpnext", "CRM")], sidebars=DOCKED, docks=DOCKS)[0]
 		self.assertEqual(
 			shape([entry])[0][1], ["CRM", "Setup", "Accounting", "Selling", "Home", "Accounts (Custom)"]
 		)
 
-	def test_an_app_without_a_dock_keeps_the_rails_order(self):
-		self.assertIn(("Education", ["Education"]), shape(rail(sidebars=DOCKED, docks=DOCKS)))
+	def test_an_app_without_a_dock_keeps_the_docks_order(self):
+		self.assertIn(("Education", ["Education"]), shape(dock(sidebars=DOCKED, docks=DOCKS)))
 
 	def test_read_from_frappes_shipped_base(self):
 		from unittest.mock import patch
@@ -559,18 +559,18 @@ class TestFrontends(TestCase):
 	"""An app's own frontend, outside the desk, carried beside its sidebars."""
 
 	def test_an_installed_app_carries_its_frontend(self):
-		entry = next(e for e in rail(frontends={"commons": "/commons"}) if e["key"] == "app:commons")
+		entry = next(e for e in dock(frontends={"commons": "/commons"}) if e["key"] == "app:commons")
 		self.assertEqual(entry["frontend"], {"label": "Commons app", "url": "/commons"})
 		self.assertEqual([s["shell"] for s in entry["modules"]], ["Assessments"])
 
 	def test_apps_without_one_carry_none(self):
-		self.assertTrue(all(entry["frontend"] is None for entry in rail()))
+		self.assertTrue(all(entry["frontend"] is None for entry in dock()))
 
-	def test_a_frontend_alone_puts_an_app_on_the_rail(self):
+	def test_a_frontend_alone_puts_an_app_on_the_dock(self):
 		# No sidebars anywhere for this app, only its frontend.
 		entry = next(
 			e
-			for e in rail(frontends={"frappe": "/builder"}, sidebars=SIDEBARS[1:])
+			for e in dock(frontends={"frappe": "/builder"}, sidebars=SIDEBARS[1:])
 			if e["key"] == "app:frappe"
 		)
 		self.assertEqual(entry["modules"], [])
@@ -578,13 +578,13 @@ class TestFrontends(TestCase):
 
 	def test_a_configured_app_has_its_own_frontend_and_label(self):
 		school = {**app("School", "Students"), "frontend_url": "/commons", "frontend_label": ""}
-		self.assertEqual(rail([school])[0]["frontend"], {"label": "School app", "url": "/commons"})
+		self.assertEqual(dock([school])[0]["frontend"], {"label": "School app", "url": "/commons"})
 		school["frontend_label"] = "Staff portal"
-		self.assertEqual(rail([school])[0]["frontend"]["label"], "Staff portal")
+		self.assertEqual(dock([school])[0]["frontend"]["label"], "Staff portal")
 
 	def test_a_configured_app_with_only_a_frontend_is_kept(self):
 		portal = {**app("Portal"), "frontend_url": "/helpdesk"}
-		self.assertEqual(rail([portal])[0]["title"], "Portal")
+		self.assertEqual(dock([portal])[0]["title"], "Portal")
 
 	def test_desk_links_are_not_frontends(self):
 		for url in ("/app", "/desk", "/app/lending", "/desk/people?x=1", "/desk/build/"):
@@ -627,7 +627,7 @@ class TestFrontends(TestCase):
 		_meta, frontends = apps_from_app_data(
 			[{"app_name": "commons", "app_title": "Commons", "app_route": ""}]
 		)
-		entry = next(e for e in rail(frontends=frontends) if e["key"] == "app:commons")
+		entry = next(e for e in dock(frontends=frontends) if e["key"] == "app:commons")
 		self.assertIsNone(entry["frontend"])
 
 
@@ -635,34 +635,34 @@ class TestCategoriesAndSpacers(TestCase):
 	"""Category and Spacer rows ride on the module after them; `sidebars` stays modules only."""
 
 	def test_each_marks_the_module_after_it(self):
-		entry = rail(
+		entry = dock(
 			[app("Finance", category("Books"), "Accounting", SPACER, "Stock", category("People"), "Users")]
 		)[0]
 		self.assertEqual(layout(entry), [("Accounting", "Books"), ("Stock", "gap"), ("Users", "People")])
 
 	def test_a_category_ends_a_spacer_next_to_it(self):
-		entry = rail([app("Finance", "Accounting", SPACER, category("Stock"), SPACER, "Stock")])[0]
+		entry = dock([app("Finance", "Accounting", SPACER, category("Stock"), SPACER, "Stock")])[0]
 		self.assertEqual(layout(entry), [("Accounting", None), ("Stock", "Stock")])
 
 	def test_a_category_whose_modules_are_gone_is_dropped(self):
 		# Stock is claimed by the first app, so Finance's "Stores" heads nothing.
 		finance = app("Finance", category("Stores"), "Stock", category("Books"), "Accounting")
-		entry = rail([app("Ops", "Stock"), finance])[1]
+		entry = dock([app("Ops", "Stock"), finance])[1]
 		self.assertEqual(layout(entry), [("Accounting", "Books")])
 
 	def test_a_gap_over_the_first_module_is_dropped(self):
-		entry = rail([app("Finance", SPACER, "Accounting")])[0]
+		entry = dock([app("Finance", SPACER, "Accounting")])[0]
 		self.assertEqual(layout(entry), [("Accounting", None)])
 
 	def test_a_trailing_category_heads_what_the_app_holds_besides(self):
-		entry = titled(rail([bound("Books", "erpnext", "Stock", category("More"))]), "Books")
+		entry = titled(dock([bound("Books", "erpnext", "Stock", category("More"))]), "Books")
 		self.assertEqual(layout(entry), [("Stock", None), ("Accounting", "More")])
 
 	def test_only_markers_is_no_app(self):
-		self.assertNotIn("Finance", [e["title"] for e in rail([app("Finance", category("Empty"), SPACER)])])
+		self.assertNotIn("Finance", [e["title"] for e in dock([app("Finance", category("Empty"), SPACER)])])
 
 	def test_a_category_without_a_label_is_a_gap(self):
-		entry = rail([app("Finance", "Accounting", category("  "), "Stock")])[0]
+		entry = dock([app("Finance", "Accounting", category("  "), "Stock")])[0]
 		self.assertEqual(layout(entry), [("Accounting", None), ("Stock", "gap")])
 
 	def test_a_row_without_a_type_is_a_module(self):
@@ -670,7 +670,7 @@ class TestCategoriesAndSpacers(TestCase):
 		self.assertEqual(row_type({"type": "", "module": "Stock"}), MODULE)
 
 	def test_a_row_of_no_known_type_is_skipped(self):
-		entry = rail([app("Finance", "Accounting", {"type": "Sidebar", "module": "Stock", "label": None})])[0]
+		entry = dock([app("Finance", "Accounting", {"type": "Sidebar", "module": "Stock", "label": None})])[0]
 		self.assertEqual(layout(entry), [("Accounting", None)])
 
 
@@ -709,16 +709,16 @@ class TestRailPosition(TestCase):
 	"""Every app at its default place, unless its record anchors it after another."""
 
 	def test_anchored_apps_follow_their_anchor_and_the_rest_keep_default_order(self):
-		from opendesk.open_desk.desk_apps import TOP, rail_sequence
+		from opendesk.open_desk.desk_apps import TOP, dock_sequence
 
 		anchors = {"app:education": TOP, "desk-app:Finance": "app:erpnext", "app:erpnext": None}
 		self.assertEqual(
-			rail_sequence(DEFAULTS, anchors),
+			dock_sequence(DEFAULTS, anchors),
 			["app:education", "app:frappe", "app:erpnext", "desk-app:Finance", "app:Other"],
 		)
 
 	def test_a_chain_of_anchors_and_one_that_is_gone(self):
-		from opendesk.open_desk.desk_apps import rail_sequence
+		from opendesk.open_desk.desk_apps import dock_sequence
 
 		anchors = {
 			"desk-app:B": "desk-app:A",
@@ -727,7 +727,7 @@ class TestRailPosition(TestCase):
 			"desk-app:C": "desk-app:C",
 		}
 		self.assertEqual(
-			rail_sequence(DEFAULTS, anchors),
+			dock_sequence(DEFAULTS, anchors),
 			[
 				"desk-app:C",
 				"app:frappe",
@@ -743,13 +743,13 @@ class TestRailPosition(TestCase):
 		from itertools import permutations
 
 		from opendesk.open_desk.arrange import anchors_for
-		from opendesk.open_desk.desk_apps import rail_sequence
+		from opendesk.open_desk.desk_apps import dock_sequence
 
 		apps = [*DEFAULTS, "desk-app:Finance"]
 		for keys in permutations(apps):
 			with self.subTest(keys=keys):
 				anchors = anchors_for(list(keys), DEFAULTS, {"desk-app:Finance"})
-				self.assertEqual(rail_sequence(DEFAULTS, anchors), list(keys))
+				self.assertEqual(dock_sequence(DEFAULTS, anchors), list(keys))
 
 	def test_moving_one_app_anchors_only_that_app(self):
 		from opendesk.open_desk.arrange import anchors_for
@@ -759,8 +759,8 @@ class TestRailPosition(TestCase):
 		self.assertEqual({k: a for k, a in anchors.items() if a}, {"app:erpnext": "app:Other"})
 
 	def test_a_hidden_unlisted_app_holds_no_place_and_nothing_follows_it(self):
-		"""Hidden, an app Frappe lists nowhere is off the rail with its modules in Other. A place
-		would keep its record, which, hidden, would take those modules off the rail altogether."""
+		"""Hidden, an app Frappe lists nowhere is off the dock with its modules in Other. A place
+		would keep its record, which, hidden, would take those modules off the dock altogether."""
 		from opendesk.open_desk.arrange import positions
 
 		defaults = [*DEFAULTS[:-1], "app:telephony", "app:Other"]
@@ -788,12 +788,12 @@ class TestRailPosition(TestCase):
 		self.assertEqual(anchors["app:education"], "top")
 
 	def test_a_bound_record_sits_at_its_apps_place_and_a_site_app_on_top(self):
-		result = rail([bound("Books", "erpnext"), app("Finance", "Students")])
+		result = dock([bound("Books", "erpnext"), app("Finance", "Students")])
 		self.assertEqual([entry["title"] for entry in result][:3], ["Finance", "Frappe Framework", "Books"])
 
-	def test_rail_after_moves_an_app(self):
-		finance = {**app("Finance", "Students"), "rail_after": "app:erpnext"}
-		titles = [entry["title"] for entry in rail([finance])]
+	def test_dock_after_moves_an_app(self):
+		finance = {**app("Finance", "Students"), "dock_after": "app:erpnext"}
+		titles = [entry["title"] for entry in dock([finance])]
 		self.assertEqual(titles.index("Finance"), titles.index("ERPNext") + 1)
 
 
@@ -805,7 +805,7 @@ class TestPlaceholder(TestCase):
 			"installed_app": "telephony",
 			"enabled": 1,
 			"hidden": 0,
-			"rail_after": None,
+			"dock_after": None,
 			"module_mode": "Add",
 			"modules": [],
 			"roles": [],
@@ -831,6 +831,6 @@ class TestPlaceholder(TestCase):
 	def test_a_place_or_a_setting_of_its_own_is_kept(self):
 		from opendesk.open_desk.arrange import _is_placeholder
 
-		for values in ({"rail_after": "top"}, {"apps_screen": "One Icon"}, {"title": "Calls"}):
+		for values in ({"dock_after": "top"}, {"apps_screen": "One Icon"}, {"title": "Calls"}):
 			with self.subTest(**values):
 				self.assertFalse(_is_placeholder(self.doc(**values), "Telephony"))

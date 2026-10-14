@@ -7,8 +7,8 @@
 
 // Before anything that adds to the user menu: see the file.
 import "./user_menu_rows";
-// Before the rail, which hands it the modules to place.
+// Before the dock, which hands it the modules to place.
 import "../../open_desk/js/boot_arrangement";
-import "../../open_desk/js/rail";
+import "../../open_desk/js/dock";
 import "../../open_desk/js/user_menu";
 import "../../open_desk/js/arrange";

@@ -14,20 +14,23 @@ import frappe
 
 SETTINGS = "Open Desk Settings"
 
-# `js/rail.js`, Frappe's Dock listing the apps `desk_apps` resolves
-ENABLE_NAVIGATION_RAIL = "enable_navigation_rail"
-# The rail's foot: Search, Notifications and other apps' tiles moved there from the top of the
-# sidebar (`js/rail.js`, `scss/rail.scss`). Only with the rail.
-ENABLE_RAIL_TOOLS = "enable_rail_tools"
+# `js/dock.js`, Frappe's Dock listing the apps `desk_apps` resolves
+ENABLE_DOCK = "enable_dock"
+# The dock's foot: Search, Notifications and other apps' tiles moved there from the top of the
+# sidebar (`js/dock.js`, `scss/dock.scss`). Only with the dock.
+ENABLE_DOCK_TOOLS = "enable_dock_tools"
+# Below 768px, the dock in the sidebar's drawer (`js/dock.js`, `scss/dock.scss`). On unless
+# switched off: a site that has not saved the settings since the field arrived has no value for it.
+SHOW_DOCK_ON_MOBILE = "show_dock_on_mobile"
 # Where an app's modules are offered: "Module Menu", "App Menu", "Sliding Sidebar", "Module Tabs",
-# "Three Column", "Accordion Rail" or "Accordion Sidebar" (`js/rail.js`). Told to the desk as
-# `module_picker`: "header", "app_menu", "sidebar", "tabs", "column", "accordion_rail" or
-# "accordion_sidebar".
+# "Three Column", "Accordion Dock", or "Accordion Sidebar" (`js/dock.js`); the "Layout" field. Told
+# to the desk as `module_picker`: "header", "app_menu", "sidebar", "tabs", "column",
+# "accordion_dock", or "accordion_sidebar".
 MODULE_PICKER = "module_picker"
-# What picking an app on the rail does, in whichever picker: "Open Last Module" goes into it, to
-# the module last open in it; "Open Last Sidebar Item" to the sidebar item last open in it; "Show
-# Its Modules" offers them over the page you are on (`js/rail.js`). Told to the desk as `app_pick`:
-# "enter", "enter_item" or "offer".
+# What picking an app on the dock does, in whichever picker: "Show Its Modules" offers them over
+# the page you are on; "Open Last Module" goes into it, to the module last open in it; "Open Last
+# Sidebar Item" to the sidebar item last open in it (`js/dock.js`). Told to the desk as `app_pick`:
+# "offer", "enter", or "enter_item".
 APP_PICK = "app_pick"
 # `apps_screen.py`, which arranges Frappe's Apps screen from the Desk Apps
 ENABLE_APPS_SCREEN = "enable_apps_screen"
@@ -37,8 +40,8 @@ ENABLE_USER_MENU = "enable_user_menu"
 # What the desk is told, under `frappe.boot.opendesk_features`: each key is the
 # name the browser half checks, and each value the field that switches it.
 DESK_FEATURES = {
-	"navigation_rail": ENABLE_NAVIGATION_RAIL,
-	"rail_tools": ENABLE_RAIL_TOOLS,
+	"dock": ENABLE_DOCK,
+	"dock_tools": ENABLE_DOCK_TOOLS,
 	"apps_screen": ENABLE_APPS_SCREEN,
 	"user_menu": ENABLE_USER_MENU,
 }
@@ -95,6 +98,7 @@ def extend_bootinfo(bootinfo: "frappe._dict") -> None:
 		features["apps_screen"] = apps_screen.enabled()
 		features["module_picker"] = module_picker()
 		features["app_pick"] = app_pick()
+		features["mobile_dock"] = show_dock_on_mobile()
 	except Exception:
 		log_boot_failure("Open Desk settings: kept Frappe's desk")
 		features = {}
@@ -128,22 +132,22 @@ def _first_this_hour(key: str) -> bool:
 
 
 @frappe.whitelist(methods=["POST"])
-def report_rail_failure(error: str, route: str | None = None) -> None:
-	"""Log that the rail met a change in Frappe in someone's browser and switched itself off.
+def report_dock_failure(error: str, route: str | None = None) -> None:
+	"""Log that the dock met a change in Frappe in someone's browser and switched itself off.
 
-	The desk's half gives up quietly (`give_up` in `js/rail.js`): the person sees Frappe's own desk
+	The desk's half gives up quietly (`give_up` in `js/dock.js`): the person sees Frappe's own desk
 	and the reason is only in their console. This puts it in the Error Log, where an upgrade that
 	moved something is noticed -- once an hour per site, however many desks meet it.
 	"""
-	if _first_this_hour("opendesk_rail_failure"):
+	if _first_this_hour("opendesk_dock_failure"):
 		frappe.log_error(
-			title="Open Desk rail: switched off in the browser",
+			title="Open Desk dock: switched off in the browser",
 			message=f"User: {frappe.session.user}\nRoute: {route or ''}\n\n{(error or '')[:4000]}",
 			defer_insert=True,
 		)
 
 
-# Each Select option, by the name the desk is told (`js/rail.js` checks these names). A value the
+# Each Select option, by the name the desk is told (`js/dock.js` checks these names). A value the
 # site has not set, or one not here, is the default: the first of each.
 MODULE_PICKERS = {
 	"Module Menu": "header",
@@ -151,13 +155,13 @@ MODULE_PICKERS = {
 	"Sliding Sidebar": "sidebar",
 	"Module Tabs": "tabs",
 	"Three Column": "column",
-	"Accordion Rail": "accordion_rail",
+	"Accordion Dock": "accordion_dock",
 	"Accordion Sidebar": "accordion_sidebar",
 }
 APP_PICKS = {
+	"Show Its Modules": "offer",
 	"Open Last Module": "enter",
 	"Open Last Sidebar Item": "enter_item",
-	"Show Its Modules": "offer",
 }
 
 
@@ -167,8 +171,15 @@ def module_picker() -> str:
 
 
 def app_pick() -> str:
-	"""What picking an app does (`APP_PICKS`); "enter", at its last module, by default."""
+	"""What picking an app does (`APP_PICKS`); "offer", showing its modules, by default."""
 	return _choice(APP_PICK, APP_PICKS)
+
+
+def show_dock_on_mobile() -> bool:
+	"""Whether the dock is drawn in the drawer below 768px: yes unless the site switched it off."""
+	doc = _settings()
+	value = doc.get(SHOW_DOCK_ON_MOBILE) if doc else None
+	return value is None or bool(value)
 
 
 def _choice(fieldname: str, names: dict) -> str:

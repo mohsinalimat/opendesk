@@ -9,7 +9,7 @@ named in `OPENDESK_TEST_SITE`, and are skipped without one:
     cd sites && OPENDESK_TEST_SITE=demo.localhost ../env/bin/python -m unittest \\
         opendesk.open_desk.test_editor_endpoints
 
-They save Desk App records through the endpoints and read the rail back, each test in a
+They save Desk App records through the endpoints and read the dock back, each test in a
 transaction that is rolled back at its end -- nothing here commits -- and each checks that
 the site's records are what they were. No module is made: the editor's New Module would
 make a Module Def and a workspace, which a site in developer mode writes out as files.
@@ -56,29 +56,29 @@ class TestEditorEndpoints(TestCase):
 
 	# --------------------------------------------------------------------------- helpers
 
-	def rail(self):
-		return self.arrange._rail()
+	def dock(self):
+		return self.arrange._dock()
 
-	def items(self, rail, hidden=(), shown=()):
-		"""The rail as Manage Desk Apps sends it back, with `hidden` taken off and `shown` put on."""
+	def items(self, dock, hidden=(), shown=()):
+		"""The dock as Manage Desk Apps sends it back, with `hidden` taken off and `shown` put on."""
 		return [
 			{
 				"key": app["key"],
 				"hidden": (bool(app.get("hidden")) or app["key"] in hidden) and app["key"] not in shown,
 				"apps_screen": app.get("apps_screen") or "Default",
 			}
-			for app in rail
+			for app in dock
 		]
 
-	def visible(self, rail):
-		return [app["key"] for app in rail if not app.get("hidden")]
+	def visible(self, dock):
+		return [app["key"] for app in dock if not app.get("hidden")]
 
-	def installed(self, rail, modules=1):
-		"""An installed app on the rail as it comes, with no record and at least `modules` modules."""
+	def installed(self, dock, modules=1):
+		"""An installed app on the dock as it comes, with no record and at least `modules` modules."""
 		app = next(
 			(
 				app
-				for app in rail
+				for app in dock
 				if app.get("installed_app") not in (None, self.nav.OTHER)
 				and not app.get("record")
 				and not app.get("hidden")
@@ -98,41 +98,41 @@ class TestEditorEndpoints(TestCase):
 	def test_refuses_without_the_rights(self):
 		frappe.set_user("Guest")
 		with self.assertRaises(frappe.PermissionError):
-			self.arrange.get_rail()
+			self.arrange.get_dock()
 		with self.assertRaises(frappe.PermissionError):
-			self.arrange.save_rail("[]")
+			self.arrange.save_dock("[]")
 		with self.assertRaises(frappe.PermissionError):
 			self.arrange.save_app_modules("app:frappe", "[]")
 
 	def test_hiding_an_app_makes_a_record_and_showing_it_removes_it(self):
-		app = self.installed(self.rail())
-		self.arrange.save_rail(json.dumps(self.items(self.rail(), hidden={app["key"]})))
-		hidden = next(a for a in self.rail() if a["key"] == app["key"])
+		app = self.installed(self.dock())
+		self.arrange.save_dock(json.dumps(self.items(self.dock(), hidden={app["key"]})))
+		hidden = next(a for a in self.dock() if a["key"] == app["key"])
 		self.assertTrue(hidden.get("hidden"))
 		self.assertTrue(hidden.get("record"))
 
-		self.arrange.save_rail(json.dumps(self.items(self.rail(), shown={app["key"]})))
+		self.arrange.save_dock(json.dumps(self.items(self.dock(), shown={app["key"]})))
 		self.assertFalse(frappe.db.exists(self.nav.APP, hidden["record"]), "the placeholder was kept")
 		self.assertFalse(self.created())
 
 	def test_a_save_over_a_newer_one_is_refused(self):
-		opened = self.arrange.get_rail()
-		self.assertEqual([a["key"] for a in opened["apps"]], [a["key"] for a in self.rail()])
-		app = self.installed(self.rail())
-		saved = self.arrange.save_rail(
-			json.dumps(self.items(self.rail(), hidden={app["key"]})), stamp=opened["stamp"]
+		opened = self.arrange.get_dock()
+		self.assertEqual([a["key"] for a in opened["apps"]], [a["key"] for a in self.dock()])
+		app = self.installed(self.dock())
+		saved = self.arrange.save_dock(
+			json.dumps(self.items(self.dock(), hidden={app["key"]})), stamp=opened["stamp"]
 		)
 		self.assertNotEqual(saved["stamp"], opened["stamp"], "the save left the stamp as it was")
 		self.assertEqual(saved["stamp"], self.arrange.records_stamp())
 
-		# A second editor, opened before that save: refused, for Manage Modules as for the rail.
+		# A second editor, opened before that save: refused, for Manage Modules as for the dock.
 		with self.assertRaises(frappe.TimestampMismatchError):
-			self.arrange.save_rail(json.dumps(self.items(self.rail())), stamp=opened["stamp"])
+			self.arrange.save_dock(json.dumps(self.items(self.dock())), stamp=opened["stamp"])
 		with self.assertRaises(frappe.TimestampMismatchError):
 			self.arrange.save_app_modules(app["key"], "[]", stamp=opened["stamp"])
 
 		# The stamp the save handed back is current: the editor still open may save over it.
-		self.arrange.save_rail(json.dumps(self.items(self.rail(), shown={app["key"]})), stamp=saved["stamp"])
+		self.arrange.save_dock(json.dumps(self.items(self.dock(), shown={app["key"]})), stamp=saved["stamp"])
 
 	def test_an_uninstall_that_empties_a_replace_record_turns_it_to_add(self):
 		from unittest.mock import patch
@@ -177,27 +177,27 @@ class TestEditorEndpoints(TestCase):
 		self.assertEqual(frappe.db.get_value(self.nav.APP, chosen.name, "module_mode"), self.nav.REPLACE)
 
 	def test_moving_one_app_anchors_only_it(self):
-		rail = self.rail()
-		movable = [k for k in self.visible(rail) if k != f"app:{self.nav.OTHER}"]
+		dock = self.dock()
+		movable = [k for k in self.visible(dock) if k != f"app:{self.nav.OTHER}"]
 		if len(movable) < 2:
-			self.skipTest("too few apps on the rail")
+			self.skipTest("too few apps on the dock")
 		moved = movable[-1]
-		wanted = [moved, *[k for k in self.visible(rail) if k != moved]]
+		wanted = [moved, *[k for k in self.visible(dock) if k != moved]]
 		order = {key: i for i, key in enumerate(wanted)}
-		items = sorted(self.items(rail), key=lambda item: order.get(item["key"], len(order)))
-		self.arrange.save_rail(json.dumps(items))
-		self.assertEqual(self.visible(self.rail()), wanted)
+		items = sorted(self.items(dock), key=lambda item: order.get(item["key"], len(order)))
+		self.arrange.save_dock(json.dumps(items))
+		self.assertEqual(self.visible(self.dock()), wanted)
 		self.assertEqual(len(self.created()), 1, "more than the moved app got a record")
 
 	def test_items_without_a_key_or_twice_are_ignored(self):
-		rail = self.rail()
-		items = self.items(rail)
-		self.arrange.save_rail(json.dumps([{"hidden": 1}, *items, dict(items[0])]))
-		self.assertEqual(self.visible(self.rail()), self.visible(rail))
+		dock = self.dock()
+		items = self.items(dock)
+		self.arrange.save_dock(json.dumps([{"hidden": 1}, *items, dict(items[0])]))
+		self.assertEqual(self.visible(self.dock()), self.visible(dock))
 		self.assertFalse(self.created())
 
 	def test_a_hidden_unlisted_app_gets_no_modules(self):
-		app = next((a for a in self.rail() if a.get("unlisted") and a.get("hidden")), None)
+		app = next((a for a in self.dock() if a.get("unlisted") and a.get("hidden")), None)
 		if not app:
 			self.skipTest(f"no hidden unlisted app on {SITE}")
 		with self.assertRaises(frappe.ValidationError):
@@ -207,27 +207,27 @@ class TestEditorEndpoints(TestCase):
 	def test_taking_a_module_off_sends_it_to_other(self):
 		from frappe.boot import get_module_sidebars
 
-		app = self.installed(self.rail(), modules=2)
+		app = self.installed(self.dock(), modules=2)
 		rows = self.arrange.get_app_modules(app["key"])["rows"]
 		listed = [r for r in rows if r["kind"] == "module" and not r.get("hidden")]
 		off = listed[-1]["module"]
 		items = [dict(r, hidden=True) if r.get("module") == off else r for r in rows]
 		self.arrange.save_app_modules(app["key"], json.dumps(items))
 
-		rail = {a["key"]: a for a in self.rail()}
-		record = rail[app["key"]]["record"]
+		dock = {a["key"]: a for a in self.dock()}
+		record = dock[app["key"]]["record"]
 		self.assertEqual(frappe.db.get_value(self.nav.APP, record, "module_mode"), self.nav.REPLACE)
 		sidebars = get_module_sidebars()
 
 		def module_of(entry):
 			return (sidebars.get(entry["shell"]) or {}).get("module") or entry["shell"]
 
-		self.assertNotIn(off, [module_of(e) for e in rail[app["key"]]["modules"] if e.get("shell")])
-		other = next(a for a in rail.values() if a.get("installed_app") == self.nav.OTHER)
+		self.assertNotIn(off, [module_of(e) for e in dock[app["key"]]["modules"] if e.get("shell")])
+		other = next(a for a in dock.values() if a.get("installed_app") == self.nav.OTHER)
 		self.assertIn(off, [module_of(e) for e in other["modules"] if e.get("shell")])
 
 	def test_a_new_app_takes_its_drafted_modules(self):
-		donor = self.installed(self.rail(), modules=2)
+		donor = self.installed(self.dock(), modules=2)
 		module = [
 			r["module"]
 			for r in self.arrange.get_app_modules(donor["key"])["rows"]
@@ -239,12 +239,12 @@ class TestEditorEndpoints(TestCase):
 			"title": TITLE,
 			"modules": json.dumps([{"kind": "module", "module": module}]),
 		}
-		result = self.arrange.save_rail(json.dumps([new, *self.items(self.rail())]))
+		result = self.arrange.save_dock(json.dumps([new, *self.items(self.dock())]))
 
 		key = f"desk-app:{TITLE}"
 		self.assertEqual(result["created"], [key])
-		rail = self.rail()
-		self.assertEqual(self.visible(rail)[0], key, "the new app is not where the editor put it")
+		dock = self.dock()
+		self.assertEqual(self.visible(dock)[0], key, "the new app is not where the editor put it")
 		doc = frappe.get_doc(self.nav.APP, TITLE)
 		self.assertEqual([row.module for row in doc.modules], [module])
 		# And it left the app it came from.

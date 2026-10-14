@@ -3,18 +3,18 @@
 
 """Every name in Frappe that Open Desk hangs on, still there.
 
-What it checks: the sidebar classes the rail patches and reads, the arrangement editor
-`js/arrange.js` extends, the classes `scss/rail.scss` styles, the Apps screen's tiles
-(which the rail opens a module list from and `apps_screen.py` arranges), the icon
-sprites `module_tiles.py` reads, and -- for the two Dock methods the rail replaces
-outright rather than wraps -- that Frappe's own have not changed since the rail was
+What it checks: the sidebar classes the dock patches and reads, the arrangement editor
+`js/arrange.js` extends, the classes `scss/dock.scss` styles, the Apps screen's tiles
+(which the dock opens a module list from and `apps_screen.py` arranges), the icon
+sprites `module_tiles.py` reads, and -- for the two Dock methods the dock replaces
+outright rather than wraps -- that Frappe's own have not changed since the dock was
 written against them.
 
-The desk half (`js/rail.js`, `js/user_menu.js`, `js/arrange.js`,
+The desk half (`js/dock.js`, `js/user_menu.js`, `js/arrange.js`,
 `js/boot_arrangement.js`, `public/js/user_menu_rows.js`) patches Frappe's
 sidebar classes and reads their properties, markup and menu rows. In the
-browser, a missing method switches the rail off and a changed one makes it give
-up (`patch` in the rail), so a Frappe upgrade costs the rail, not the desk --
+browser, a missing method switches the dock off and a changed one makes it give
+up (`patch` in the dock), so a Frappe upgrade costs the dock, not the desk --
 but quietly. This reads Frappe's own source instead, so the run after
 `bench update` says which name moved, before anyone opens the desk.
 
@@ -52,10 +52,13 @@ SEAMS = {
 			"empty",
 			"open",
 			"refresh_header",
-			# An Apps screen tile's landing page, which the rail matches a click to (`js/rail.js`).
+			# An Apps screen tile's landing page, which the dock matches a click to (`js/dock.js`).
 			"app_landing_route",
 			"refresh_dock",
 			"create_user_menu",
+			# Kept from shutting the drawer when a module is picked in it, below 768px.
+			"restore_expanded_state",
+			"panel_can_close",
 			# The module column redraws with the sidebar's visibility.
 			"apply_page_visibility",
 			"toggle",
@@ -83,10 +86,22 @@ SEAMS = {
 			"standard-items-band",
 			"frappe.get_module_icon =",
 			'frappe.router.on("change"',
+			# The drawer closing below 768px, which hides the dock's tooltips.
+			'trigger("sidebar-expand"',
 		],
 	},
 	("ui", "sidebar", "dock.js"): {
-		"methods": ["make", "render_entries", "render_logo", "name_tile", "close", "refresh"],
+		# `should_pin` is wrapped and `apply_pin` called for the dock in the drawer below 768px.
+		"methods": [
+			"make",
+			"render_entries",
+			"render_logo",
+			"name_tile",
+			"close",
+			"refresh",
+			"should_pin",
+			"apply_pin",
+		],
 		"properties": [
 			"sidebar",
 			"$dock",
@@ -142,7 +157,7 @@ SEAMS = {
 			"standard-sidebar-item",
 		],
 	},
-	# The last: the rail escapes what it puts in a row, because the template prints labels as HTML.
+	# The last: the dock escapes what it puts in a row, because the template prints labels as HTML.
 	("ui", "sidebar", "sidebar_item.html"): {
 		"strings": ["sidebar-item-container", "item-anchor", "sidebar-item-label", "{{ item.label }}"],
 	},
@@ -208,16 +223,18 @@ SEAMS = {
 		"strings": ["frappe.ui.Dropdown =", "this.opts.on_close && this.opts.on_close(reason)"],
 	},
 	# Manage Desk Apps' Apps Screen menu marks the current choice; the rows' labels are text.
-	("ui", "components", "menu.js"): {"strings": ["item.selected", "textContent", '"es-menu"']},
-	# An Apps screen tile: where it leads, and the two links the rail recognises it by.
+	("ui", "components", "menu.js"): {
+		"strings": ["item.selected", "textContent", '"es-menu"', 'panel.setAttribute("role", "menu")']
+	},
+	# An Apps screen tile: where it leads, and the two links the dock recognises it by.
 	("ui", "desktop_icon.html"): {"strings": ['class="icon-link"', 'class="icon-title"', "icon.logo_url"]},
 	("utils", "utils.js"): {"methods": ["app_logo", "desktop_icon", "sidebar_for_module"]},
-	# The rail's own tips and its mark's, destroyed when it redraws or gives up.
+	# The dock's own tips and its mark's, destroyed when it redraws or gives up.
 	("ui", "components", "tooltip.js"): {"methods": ["destroy"], "strings": ["frappe.ui.Tooltip ="]},
-	# The rail's Search and bell are Frappe's, found by class: Search opens from a delegated click
+	# The dock's Search and bell are Frappe's, found by class: Search opens from a delegated click
 	# on the class, the bell's panel answers to its trigger, and every count on the page is filled.
 	("ui", "page.js"): {"strings": ['awesome_bar.setup(".navbar-modal-search-mobile")']},
-	# The rail waits for the routed page to be on screen before reading its sidebar: Frappe
+	# The dock waits for the routed page to be on screen before reading its sidebar: Frappe
 	# announces the page, then shows or hides the sidebar for it (`once_page_shows`).
 	("views", "container.js"): {
 		"strings": ['$(document).trigger("page-change", this.page);', "this.toggle_sidebar();"]
@@ -243,13 +260,22 @@ SEAMS = {
 METHOD_BODIES = {
 	("ui", "sidebar", "sidebar.js"): {
 		# `user_menu_rows.js` edits the first Dropdown this makes, from its options array, and the
-		# rail finds Manage Dock among its rows.
+		# dock finds Manage Dock among its rows.
 		"create_user_menu": ["new frappe.ui.Dropdown({", "options: [", '"workspace-selector"'],
+		# The dock keeps its own copy of this click-away, letting through a pick that rebuilt the
+		# drawer (`js/dock.js`): a change here is a change to copy there.
+		"setup_click_away": [
+			'.off(".sidebar-click-away")',
+			'"click.sidebar-click-away"',
+			"if (!this.sidebar_expanded || !this.panel_can_close()) return;",
+			'".body-sidebar, .dock, .sidebar-toggle-btn, .sidebar-panel, .sidebar-collapse-arrow"',
+			"this.close();",
+		],
 	},
 }
 
-# The sidebar's standard items, by class: the rail hides their band beside it and draws these two
-# at its foot (`js/rail.js`). Anything else Frappe puts in the band would be out of reach.
+# The sidebar's standard items, by class: the dock hides their band beside it and draws these two
+# at its foot (`js/dock.js`). Anything else Frappe puts in the band would be out of reach.
 STANDARD_ITEMS = {"navbar-modal-search-mobile", "sidebar-notification hidden"}
 
 # The boot data the server half reads, by the source that shapes it.
@@ -262,7 +288,7 @@ PYTHON_SEAMS = {
 		'"app": self.app',
 		'"header_icon": self.header_icon',
 	],
-	# Each `app_data` entry (`desk_apps.apps_from_app_data`, `apps_screen.py`, the rail).
+	# Each `app_data` entry (`desk_apps.apps_from_app_data`, `apps_screen.py`, the dock).
 	("boot.py",): [
 		"on_apps_screen=",
 		"sequence_id=",
@@ -286,7 +312,7 @@ PYTHON_SEAMS = {
 DOCTYPE_FIELDS = {
 	# An app's shipped Dock, read row by row (`desk_apps.shipped_docks`).
 	("desk", "doctype", "dock_item", "dock_item.json"): ["link_type", "link_to", "hidden"],
-	# The rail's mark (`desk_apps.site_logo`).
+	# The dock's mark (`desk_apps.site_logo`).
 	("website", "doctype", "website_settings", "website_settings.json"): ["app_logo"],
 	("core", "doctype", "navbar_settings", "navbar_settings.json"): ["app_logo"],
 }
@@ -294,7 +320,7 @@ DOCTYPE_FIELDS = {
 # Icons Open Desk draws by a name it works out rather than writes in the call.
 COMPUTED_ICONS = ["chevrons-left", "chevrons-right", "box", "folder", "square"]
 
-# The rail's drawers open over the sidebar, one above its z-index.
+# The dock's drawers open over the sidebar, one above its z-index.
 SCSS_SEAMS = {("desk", "sidebar.scss"): ["z-index: 1020"]}
 
 # Where Frappe's own classes may be defined or drawn: its stylesheets and the sidebar's scripts
@@ -324,9 +350,9 @@ SERVER_FUNCTIONS = {
 	"frappe.desk.desktop": ["get_workspaces"],
 }
 
-# The two Dock methods the rail replaces rather than wraps (`render_logo`, `render_entries` in
-# `js/rail.js`), as Frappe wrote them when the rail last matched them. A change fails here: read
-# what Frappe changed, carry it into the rail's version if it matters, then update the
+# The two Dock methods the dock replaces rather than wraps (`render_logo`, `render_entries` in
+# `js/dock.js`), as Frappe wrote them when the dock last matched them. A change fails here: read
+# what Frappe changed, carry it into the dock's version if it matters, then update the
 # fingerprint.
 REPLACED = {"render_entries": "deaead8e8747244a", "render_logo": "3bc6ff7131056e0f"}
 
@@ -388,7 +414,7 @@ class TestFrappeSeams(TestCase):
 				with self.subTest(path=path, string=text):
 					self.assertTrue(text in source, f"{text!r} is not in {path}")
 
-	def test_boot_still_offers_what_the_rail_reads(self):
+	def test_boot_still_offers_what_the_dock_reads(self):
 		for name in BOOT_FUNCTIONS:
 			with self.subTest(function=name):
 				self.assertTrue(_defines("frappe.boot", name), f"frappe.boot.{name} is gone")
@@ -415,7 +441,7 @@ class TestFrappeSeams(TestCase):
 				self.assertLessEqual({"link_type", "link_to", "hidden"}, set(row))
 
 	def test_app_data_is_in_the_boot_before_extend_bootinfo_runs(self):
-		"""The rail reads this user's `app_data` from the boot it extends (`desk_apps.py`)."""
+		"""The dock reads this user's `app_data` from the boot it extends (`desk_apps.py`)."""
 		# `get_bootinfo` builds it (`load_desktop_data`), then the session runs the hooks.
 		self.assertIn("load_desktop_data(bootinfo", _source("boot.py"))
 		sessions = _source("sessions.py")
@@ -423,14 +449,14 @@ class TestFrappeSeams(TestCase):
 			sessions.index("bootinfo = get_bootinfo()"), sessions.index('get_hooks("extend_bootinfo")')
 		)
 
-	def test_every_frappe_class_the_rail_styles_is_still_frappes(self):
-		"""A renamed class throws nothing: the rail only looks wrong. So each is looked for here."""
-		with open(frappe.get_app_path("opendesk", "open_desk", "scss", "rail.scss")) as f:
+	def test_every_frappe_class_the_dock_styles_is_still_frappes(self):
+		"""A renamed class throws nothing: the dock only looks wrong. So each is looked for here."""
+		with open(frappe.get_app_path("opendesk", "open_desk", "scss", "dock.scss")) as f:
 			stylesheet = re.sub(r"//[^\n]*|/\*[\s\S]*?\*/", "", f.read())
 		classes = {
 			name for name in re.findall(r"\.([a-z][\w-]*)", stylesheet) if not name.startswith("opendesk-")
 		}
-		self.assertTrue(classes, "read no classes from rail.scss")
+		self.assertTrue(classes, "read no classes from dock.scss")
 
 		frappe_source = []
 		for parts in CLASS_SOURCES:
@@ -444,14 +470,14 @@ class TestFrappeSeams(TestCase):
 		for name in sorted(classes):
 			with self.subTest(css_class=name):
 				found = re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", frappe_source)
-				self.assertTrue(found, f".{name} is styled by rail.scss but is not in Frappe")
+				self.assertTrue(found, f".{name} is styled by dock.scss but is not in Frappe")
 		for parts, texts in SCSS_SEAMS.items():
 			source = _source("public", "scss", *parts)
 			for text in texts:
 				with self.subTest(path=os.path.join(*parts), string=text):
 					self.assertTrue(text in source, f"{text!r} is not in {os.path.join(*parts)}")
 
-	def test_the_dock_methods_the_rail_replaces_are_unchanged(self):
+	def test_the_dock_methods_the_dock_replaces_are_unchanged(self):
 		import hashlib
 
 		source = _source(*JS, "ui", "sidebar", "dock.js")
@@ -462,10 +488,10 @@ class TestFrappeSeams(TestCase):
 				self.assertEqual(
 					hashlib.sha256(found.group(0).encode()).hexdigest()[:16],
 					fingerprint,
-					f"Frappe changed Dock.{name}, which js/rail.js replaces: read the change",
+					f"Frappe changed Dock.{name}, which js/dock.js replaces: read the change",
 				)
 
-	def test_the_apps_screen_page_still_offers_what_the_rail_reads(self):
+	def test_the_apps_screen_page_still_offers_what_the_dock_reads(self):
 		for parts, texts in DESKTOP_SEAMS.items():
 			source = _source(*parts)
 			for text in texts:
@@ -494,15 +520,15 @@ class TestFrappeSeams(TestCase):
 					with self.subTest(method=name, string=text):
 						self.assertTrue(body and text in body.group(0), f"{text!r} is not in {name}()")
 
-	def test_the_standard_items_are_the_two_the_rail_redraws(self):
+	def test_the_standard_items_are_the_two_the_dock_redraws(self):
 		source = _source(*JS, "ui", "sidebar", "sidebar.js")
 		body = re.search(r"(?ms)^\tadd_standard_items\(.*?\) \{\n.*?^\t\}\n", source)
 		self.assertTrue(body, "add_standard_items() is not in sidebar.js")
 		self.assertEqual(
 			set(re.findall(r'class: "([^"]+)"', body.group(0))),
 			STANDARD_ITEMS,
-			"Frappe's sidebar band changed: beside the rail it is hidden, and only Search and "
-			"Notifications are drawn again at the rail's foot",
+			"Frappe's sidebar band changed: beside the dock it is hidden, and only Search and "
+			"Notifications are drawn again at the dock's foot",
 		)
 
 	def test_the_boot_data_keeps_its_shape(self):
@@ -522,12 +548,12 @@ class TestFrappeSeams(TestCase):
 				with self.subTest(doctype=parts[-1], field=field):
 					self.assertIn(field, names)
 
-	def test_every_css_variable_the_rail_reads_is_defined(self):
+	def test_every_css_variable_the_dock_reads_is_defined(self):
 		"""An undefined variable throws nothing either: the rule just draws nothing.
 
 		A variable read with a fallback, `var(--x, ...)`, draws either way, so only bare ones count.
 		"""
-		with open(frappe.get_app_path("opendesk", "open_desk", "scss", "rail.scss")) as f:
+		with open(frappe.get_app_path("opendesk", "open_desk", "scss", "dock.scss")) as f:
 			stylesheet = re.sub(r"//[^\n]*|/\*[\s\S]*?\*/", "", f.read())
 		used = set(re.findall(r"var\((--[\w-]+)\s*\)", stylesheet))
 		defined = set(re.findall(r"(--[\w-]+)\s*:", stylesheet))
@@ -540,7 +566,7 @@ class TestFrappeSeams(TestCase):
 							defined |= set(re.findall(r"(--[\w-]+)\s*:", f.read()))
 		for name in sorted(used):
 			with self.subTest(variable=name):
-				self.assertTrue(name in defined, f"var({name}) in rail.scss is not defined in Frappe")
+				self.assertTrue(name in defined, f"var({name}) in dock.scss is not defined in Frappe")
 
 	def test_every_icon_open_desk_names_is_in_a_sprite(self):
 		"""A missing icon draws an empty box, quietly. Looked for in the sprites Frappe loads."""

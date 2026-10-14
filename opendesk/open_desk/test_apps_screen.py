@@ -8,8 +8,8 @@ from unittest import TestCase
 from opendesk.open_desk.apps_screen import BOTH, HIDDEN, ONE_ICON, PER_MODULE, arrange
 
 
-def rail_app(key, app_name, title, modules=(), mode=None, logo=None, frontend=None):
-	"""A rail entry; an `app:` key stands for an installed app, as the resolver marks it."""
+def dock_app(key, app_name, title, modules=(), mode=None, logo=None, frontend=None):
+	"""A dock entry; an `app:` key stands for an installed app, as the resolver marks it."""
 	return {
 		"key": key,
 		"app_name": app_name,
@@ -59,9 +59,9 @@ def shown(data):
 
 
 class TestArrange(TestCase):
-	def test_rail_order_one_icon_each_and_everything_else_off(self):
+	def test_dock_order_one_icon_each_and_everything_else_off(self):
 		data = app_data()
-		arrange(data, [rail_app("app:hrms", "hrms", "People"), rail_app("app:erpnext", "erpnext", "ERPNext")])
+		arrange(data, [dock_app("app:hrms", "hrms", "People"), dock_app("app:erpnext", "erpnext", "ERPNext")])
 		self.assertEqual(shown(data), [("hrms", "People"), ("erpnext", "ERPNext")])
 
 	def test_default_follows_frappe_for_installed_apps(self):
@@ -70,21 +70,21 @@ class TestArrange(TestCase):
 		arrange(
 			data,
 			[
-				rail_app("app:telephony", "telephony", "Telephony", modules=("Telephony",)),
-				rail_app("app:erpnext", "erpnext", "ERPNext"),
-				rail_app("app:Other", "opendesk-other", "Other", modules=("Misc",)),
+				dock_app("app:telephony", "telephony", "Telephony", modules=("Telephony",)),
+				dock_app("app:erpnext", "erpnext", "ERPNext"),
+				dock_app("app:Other", "opendesk-other", "Other", modules=("Misc",)),
 			],
 		)
 		self.assertEqual(shown(data), [("erpnext", "ERPNext")])
 
 	def test_one_icon_gives_an_app_a_tile_it_did_not_ask_for(self):
 		data = app_data()
-		arrange(data, [rail_app("app:telephony", "telephony", "Telephony", mode=ONE_ICON)])
+		arrange(data, [dock_app("app:telephony", "telephony", "Telephony", mode=ONE_ICON)])
 		self.assertEqual(shown(data), [("telephony", "Telephony")])
 
 	def test_default_gives_an_app_of_the_sites_own_a_tile(self):
 		data = app_data()
-		arrange(data, [rail_app("desk-app:Finance", "desk-app:Finance", "Finance", modules=("Accounts",))])
+		arrange(data, [dock_app("desk-app:Finance", "desk-app:Finance", "Finance", modules=("Accounts",))])
 		self.assertEqual(shown(data), [("desk-app:Finance", "Finance")])
 
 	def test_hidden_has_no_tile(self):
@@ -92,15 +92,15 @@ class TestArrange(TestCase):
 		arrange(
 			data,
 			[
-				rail_app("app:hrms", "hrms", "Frappe HR", mode=HIDDEN),
-				rail_app("app:erpnext", "erpnext", "ERPNext"),
+				dock_app("app:hrms", "hrms", "Frappe HR", mode=HIDDEN),
+				dock_app("app:erpnext", "erpnext", "ERPNext"),
 			],
 		)
 		self.assertEqual(shown(data), [("erpnext", "ERPNext")])
 
 	def test_icon_per_module_with_frontend_first_and_pictures(self):
 		data = app_data()
-		oi = rail_app(
+		oi = dock_app(
 			"desk-app:OI",
 			"desk-app:OI",
 			"OI",
@@ -120,7 +120,7 @@ class TestArrange(TestCase):
 
 	def test_app_and_module_icons_puts_the_apps_tile_first(self):
 		data = app_data()
-		oi = rail_app(
+		oi = dock_app(
 			"desk-app:OI",
 			"desk-app:OI",
 			"OI",
@@ -129,7 +129,7 @@ class TestArrange(TestCase):
 			logo="/oi.svg",
 			frontend={"label": "OI app", "url": "/commons"},
 		)
-		arrange(data, [oi, rail_app("app:erpnext", "erpnext", "ERPNext")])
+		arrange(data, [oi, dock_app("app:erpnext", "erpnext", "ERPNext")])
 		self.assertEqual(
 			shown(data),
 			[
@@ -146,7 +146,7 @@ class TestArrange(TestCase):
 	def test_app_and_module_icons_has_no_second_tile_for_the_frontend_the_app_opens(self):
 		data = app_data()
 		data[1]["app_route"] = "/hr"
-		hr = rail_app(
+		hr = dock_app(
 			"app:hrms",
 			"hrms",
 			"Frappe HR",
@@ -164,7 +164,7 @@ class TestArrange(TestCase):
 		from opendesk.open_desk import apps_screen
 
 		data = app_data()
-		oi = rail_app("desk-app:OI", "desk-app:OI", "OI", modules=("Stock", "Members"), mode=PER_MODULE)
+		oi = dock_app("desk-app:OI", "desk-app:OI", "OI", modules=("Stock", "Members"), mode=PER_MODULE)
 		oi["modules"][0]["icon"] = "shelf-rack-duotone"
 		oi["modules"][1]["desktop_image"] = "/files/members.png"
 		asked = []
@@ -184,7 +184,7 @@ class TestArrange(TestCase):
 		"""Manage Desk Apps previews the Apps screen from `plan`, so it must be the arrangement's own rule."""
 		from opendesk.open_desk.apps_screen import DEFAULT, MODES, plan
 
-		oi = rail_app(
+		oi = dock_app(
 			"desk-app:OI",
 			"desk-app:OI",
 			"OI",
@@ -194,7 +194,7 @@ class TestArrange(TestCase):
 		self.assertEqual([k for k, _ in plan(oi, BOTH, set())], ["app", "frontend", "module"])
 		self.assertEqual([k for k, _ in plan(oi, PER_MODULE, set())], ["frontend", "module"])
 		self.assertEqual(plan(oi, HIDDEN, set()), [])
-		telephony = rail_app("app:telephony", "telephony", "Telephony", modules=("Calls",))
+		telephony = dock_app("app:telephony", "telephony", "Telephony", modules=("Calls",))
 		self.assertEqual(plan(telephony, DEFAULT, set()), [])
 		self.assertEqual([k for k, _ in plan(telephony, DEFAULT, {"telephony"})], ["app"])
 		self.assertEqual(len(MODES), 5)
@@ -205,7 +205,7 @@ class TestArrange(TestCase):
 
 		data = app_data()
 		data[0]["app_route"] = "/app/build"
-		arrange(data, [rail_app("app:erpnext", "erpnext", "ERPNext")])
+		arrange(data, [dock_app("app:erpnext", "erpnext", "ERPNext")])
 		self.assertEqual(data[0]["app_route"], "/desk/build")
 		self.assertEqual(desk_address("/app"), "/desk")
 		self.assertEqual(desk_address("/app/stock?x=1"), "/desk/stock?x=1")
@@ -217,7 +217,7 @@ class TestArrange(TestCase):
 		data = app_data()
 		arrange(
 			data,
-			[rail_app("desk-app:OI", "desk-app:OI", "OI", modules=("Members",), logo="/oi.svg")],
+			[dock_app("desk-app:OI", "desk-app:OI", "OI", modules=("Members",), logo="/oi.svg")],
 		)
 		entry = next(e for e in data if e["app_name"] == "desk-app:OI")
 		self.assertEqual((entry["app_logo_url"], entry["on_apps_screen"]), ("/oi.svg", True))
@@ -225,5 +225,5 @@ class TestArrange(TestCase):
 
 	def test_a_known_apps_own_dock_is_left_alone(self):
 		data = app_data()
-		arrange(data, [rail_app("app:erpnext", "erpnext", "ERPNext", modules=("Accounts",))])
+		arrange(data, [dock_app("app:erpnext", "erpnext", "ERPNext", modules=("Accounts",))])
 		self.assertEqual(data[0]["dock"], [{"link_type": "Sidebar", "link_to": "Stock"}])

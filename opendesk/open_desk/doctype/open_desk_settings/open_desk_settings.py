@@ -16,10 +16,10 @@ class OpenDeskSettings(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
-		app_pick: DF.Literal["Open Last Module", "Open Last Sidebar Item", "Show Its Modules"]
+		app_pick: DF.Literal["Show Its Modules", "Open Last Module", "Open Last Sidebar Item"]
 		enable_apps_screen: DF.Check
-		enable_navigation_rail: DF.Check
-		enable_rail_tools: DF.Check
+		enable_dock: DF.Check
+		enable_dock_tools: DF.Check
 		enable_user_menu: DF.Check
 		module_picker: DF.Literal[
 			"Module Menu",
@@ -27,9 +27,10 @@ class OpenDeskSettings(Document):
 			"Sliding Sidebar",
 			"Module Tabs",
 			"Three Column",
-			"Accordion Rail",
+			"Accordion Dock",
 			"Accordion Sidebar",
 		]
+		show_dock_on_mobile: DF.Check
 	# end: auto-generated types
 
 	pass

@@ -3,7 +3,7 @@
 
 """Open Desk Settings' Select options and the names the desk is told for them, in step.
 
-The options are typed in the doctype's JSON; the names `js/rail.js` checks are in
+The options are typed in the doctype's JSON; the names `js/dock.js` checks are in
 `settings.MODULE_PICKERS` and `settings.APP_PICKS`. An option renamed in one and not the
 other falls back to the default without an error, so the two are compared here.
 """

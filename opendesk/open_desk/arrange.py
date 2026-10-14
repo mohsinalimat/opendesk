@@ -1,17 +1,17 @@
 # Copyright (c) 2026, Peter and contributors
 # For license information, please see license.txt
 
-"""The rail's two editors: which apps it lists, and which modules each app offers.
+"""The dock's two editors: which apps it lists, and which modules each app offers.
 
 The desk draws both in Frappe's own arrangement editor (`frappe.ui.ArrangementEditor`,
 the one behind Manage Dock and Edit Sidebar) -- see `js/arrange.js`. This is what they
 read and write. Everything is stored where it already was, on `Desk App`
 records, so the form and the editors are two ways into the same data:
 
-- Manage Desk Apps orders and hides apps (`rail_after` and `hidden`), sets how each shows
+- Manage Desk Apps orders and hides apps (`dock_after` and `hidden`), sets how each shows
   on the Apps screen (`apps_screen`, previewed with the tiles it would draw), and adds
   new ones: a Desk App of its own, with a title and an icon, which then needs modules
-  before the rail shows it.
+  before the dock shows it.
 - Manage Modules orders, adds and takes modules off one app's list, with
   Category and Spacer rows between them: the record's modules table. It can also
   make a new module there and then: a custom Module Def of the site's own, made on
@@ -23,7 +23,7 @@ records, so the form and the editors are two ways into the same data:
 Only the site's arrangement is edited ("For everyone"). There is no per-user layer:
 Desk Apps are site records.
 
-The rail order is the whole rail's, whichever editor wrote. Every app sits at its
+The dock order is the whole dock's, whichever editor wrote. Every app sits at its
 default place unless its record anchors it after another (see `desk_apps`), so
 a save writes an anchor only onto the apps that left the default order, and a record
 is made only for an app that needs one to hold a position or to be hidden. A record
@@ -82,12 +82,12 @@ def _check_stamp(seen: str | None) -> None:
 		)
 
 
-def _rail(module_sidebars: dict | None = None, app_data: list[dict] | None = None) -> list[dict]:
-	"""Every app the rail could list, hidden ones included, in rail order.
+def _dock(module_sidebars: dict | None = None, app_data: list[dict] | None = None) -> list[dict]:
+	"""Every app the dock could list, hidden ones included, in dock order.
 
 	`app_data` is Frappe's answer for this user (`frappe.boot.get_app_data`), which nothing an
 	editor saves changes: a save asks for it once and hands it to every step, rather than have
-	each step rebuild it. The rail itself is read again after each write, since it is what the
+	each step rebuild it. The dock itself is read again after each write, since it is what the
 	writes change.
 	"""
 	return nav.desk_apps(module_sidebars=module_sidebars, app_data=app_data, everything=True)
@@ -110,8 +110,8 @@ def _parse(items) -> list[dict]:
 
 
 @frappe.whitelist()
-def get_rail() -> dict:
-	"""The apps, in rail order, as the rail editor lists them, and the `stamp` its save brings back.
+def get_dock() -> dict:
+	"""The apps, in dock order, as the dock editor lists them, and the `stamp` its save brings back.
 
 	Each with its Apps Screen setting and, for every setting it could have, the tiles
 	that setting draws (`screen`), by the same rule the Apps screen is arranged by
@@ -150,7 +150,7 @@ def get_rail() -> dict:
 				for mode in apps_screen.MODES
 			},
 		}
-		for app in _rail(module_sidebars, app_data)
+		for app in _dock(module_sidebars, app_data)
 	]
 	return {"apps": apps, "stamp": records_stamp()}
 
@@ -190,8 +190,8 @@ def _preview_tiles(app: dict, tiles: list[tuple], module_sidebars: dict, style: 
 
 
 @frappe.whitelist(methods=["POST"])
-def save_rail(items: str | list, stamp: str | None = None) -> dict:
-	"""Store the rail's order, which apps are off it, and how each shows on the Apps screen.
+def save_dock(items: str | list, stamp: str | None = None) -> dict:
+	"""Store the dock's order, which apps are off it, and how each shows on the Apps screen.
 
 	`items` is every app, in order, each with `hidden` and `apps_screen`.
 
@@ -201,7 +201,7 @@ def save_rail(items: str | list, stamp: str | None = None) -> dict:
 	save would (`_store_app_modules`), new modules included. Their keys come back under
 	`created`.
 
-	`stamp` is what `get_rail` handed the editor: refused if the records have moved on since.
+	`stamp` is what `get_dock` handed the editor: refused if the records have moved on since.
 	"""
 	_check()
 	_check_stamp(stamp)
@@ -237,34 +237,34 @@ def save_rail(items: str | list, stamp: str | None = None) -> dict:
 				item["key"], _parse(item["modules"]), app_data, store_order=False
 			)
 
-	rail = _rail(module_sidebars, app_data)
-	known = {app["key"] for app in rail}
+	dock = _dock(module_sidebars, app_data)
+	known = {app["key"] for app in dock}
 	# Each app once, where the editor first put it.
 	keys = list(dict.fromkeys(item["key"] for item in items if item.get("key") in known))
 	# An app the editor did not list (installed since it opened) keeps its place at the end.
-	keys += [app["key"] for app in rail if app["key"] not in keys]
+	keys += [app["key"] for app in dock if app["key"] not in keys]
 	hidden = {item["key"] for item in items if item.get("hidden") and item.get("key") in known}
 	screens = {
 		item["key"]: item["apps_screen"]
 		for item in items
 		if item.get("key") in known and item.get("apps_screen") in apps_screen.MODES
 	}
-	_store_order(rail, keys, hidden, screens, app_data)
+	_store_order(dock, keys, hidden, screens, app_data)
 	return {**payload(module_sidebars, app_data), "created": created}
 
 
 def _store_order(
-	rail: list[dict],
+	dock: list[dict],
 	keys: list[str],
 	hidden: set[str],
 	screens: dict[str, str] | None = None,
 	app_data: list[dict] | None = None,
 ) -> None:
-	"""Write `keys` as the rail order, `hidden` as the apps off it, and `screens` as each
+	"""Write `keys` as the dock order, `hidden` as the apps off it, and `screens` as each
 	app's Apps Screen setting, onto records.
 
 	As few apps as possible are anchored; see `anchors_for`. An app the editor leaves
-	off the rail keeps the setting it had: it has no tiles either way, and for an app
+	off the dock keeps the setting it had: it has no tiles either way, and for an app
 	whose modules are in Other by default a record to hold one would take them off it.
 	"""
 	screens = screens or {}
@@ -273,7 +273,7 @@ def _store_order(
 
 		app_data = get_app_data()
 
-	by_key = {app["key"]: app for app in rail}
+	by_key = {app["key"]: app for app in dock}
 	listed = {*nav.listed_apps(), nav.OTHER}
 	defaults = [f"app:{name}" for name in [*nav.active_apps(), nav.OTHER]]
 	anchors = positions(keys, by_key, hidden, listed, defaults)
@@ -285,7 +285,7 @@ def _store_order(
 		is_hidden = 1 if key in hidden else 0
 		current = app.get("apps_screen") or apps_screen.DEFAULT
 		screen = current if is_hidden else screens.get(key, current)
-		# An unlisted app is off the rail by default, so only bringing it back needs a record.
+		# An unlisted app is off the dock by default, so only bringing it back needs a record.
 		if (
 			not app.get("record")
 			and not anchor
@@ -296,15 +296,15 @@ def _store_order(
 		doc = _record_for(app)
 		changed = (
 			doc.is_new()
-			or (doc.rail_after or None) != anchor
+			or (doc.dock_after or None) != anchor
 			or int(doc.hidden or 0) != is_hidden
 			or (doc.apps_screen or apps_screen.DEFAULT) != screen
 		)
-		doc.rail_after = anchor
+		doc.dock_after = anchor
 		doc.hidden = is_hidden
 		doc.apps_screen = screen
 		target = doc.installed_app
-		# For an unlisted app a bare, shown record is what puts it on the rail, so it stays.
+		# For an unlisted app a bare, shown record is what puts it on the dock, so it stays.
 		if _is_placeholder(
 			doc,
 			nav.OTHER if target == nav.OTHER else (meta.get(target) or {}).get("title"),
@@ -319,12 +319,12 @@ def _store_order(
 def positions(
 	keys: list[str], by_key: dict[str, dict], hidden: set[str], listed: set[str], defaults: list[str]
 ) -> dict[str, str | None]:
-	"""What each app in `keys` follows on the rail (`anchors_for`), leaving out the apps not on it.
+	"""What each app in `keys` follows on the dock (`anchors_for`), leaving out the apps not on it.
 
-	An app Frappe does not list (`listed`, which holds Other too), kept hidden, is not on the rail
+	An app Frappe does not list (`listed`, which holds Other too), kept hidden, is not on the dock
 	at all: its modules are under Other. Its place there means nothing, and a place is something its
 	record would hold -- enough to keep that record, which, hidden, would take the app's modules off
-	the rail altogether instead of leaving them in Other. So it follows nothing, and nothing follows
+	the dock altogether instead of leaving them in Other. So it follows nothing, and nothing follows
 	it.
 	"""
 	off = {key for key in keys if key in hidden and _is_unlisted(by_key[key], listed)}
@@ -334,17 +334,17 @@ def positions(
 
 
 def _is_unlisted(app: dict, listed: set[str]) -> bool:
-	"""Whether a rail app stands for an installed app Frappe does not list as somewhere to go."""
+	"""Whether a dock app stands for an installed app Frappe does not list as somewhere to go."""
 	target = app.get("installed_app")
 	return bool(target) and target not in listed
 
 
 def anchors_for(keys: list[str], defaults: list[str], with_record: set[str]) -> dict[str, str | None]:
-	"""What each app in `keys` follows on the rail so that it reads `keys`: None for its default place.
+	"""What each app in `keys` follows on the dock so that it reads `keys`: None for its default place.
 
 	The longest run of apps still in their default order stays unanchored
 	(`_unmoved`), and each of the rest follows the app before it in `keys`, or the
-	top. `desk_apps.rail_sequence` turns this back into `keys`.
+	top. `desk_apps.dock_sequence` turns this back into `keys`.
 	"""
 	stay = _unmoved(keys, defaults, with_record)
 	return {
@@ -382,15 +382,15 @@ def _is_placeholder(doc, default_title: str | None, hidden_by_default: bool = Fa
 	What `_record_for` makes for an app that only needed a position: bound, enabled,
 	under the app's own title, in Add mode, with no position, modules, roles, mark or
 	frontend of its own, and as visible as the app is without a record -- shown, or for an
-	app Frappe does not list (`hidden_by_default`), off the rail with its modules in Other.
-	A hidden record for such an app would instead take its modules off the rail altogether,
+	app Frappe does not list (`hidden_by_default`), off the dock with its modules in Other.
+	A hidden record for such an app would instead take its modules off the dock altogether,
 	so taking it off again is going back to no record.
 	"""
 	return bool(
 		doc.installed_app
 		and doc.enabled
 		and bool(doc.hidden) == hidden_by_default
-		and not doc.rail_after
+		and not doc.dock_after
 		and (doc.module_mode or nav.ADD) == nav.ADD
 		and not doc.modules
 		and not doc.roles
@@ -401,7 +401,7 @@ def _is_placeholder(doc, default_title: str | None, hidden_by_default: bool = Fa
 
 
 def _record_for(app: dict):
-	"""The Desk App behind a rail app, made bound to its installed app if it has none.
+	"""The Desk App behind a dock app, made bound to its installed app if it has none.
 
 	Records are named by their title, and the app's title may already be taken -- by a
 	disabled record kept for later, say -- so a new one takes the first free variant
@@ -443,19 +443,19 @@ def _free_title(title: str, installed_app: str | None) -> str:
 def get_app_modules(key: str) -> dict:
 	"""One app's module list as its editor shows it.
 
-	`rows` is the list as the rail draws it -- each Category and Spacer a row of its
+	`rows` is the list as the dock draws it -- each Category and Spacer a row of its
 	own -- and then, taken off, the installed app's own modules it no longer lists.
-	A module row names its Module Def and what the rail calls it, which is its
+	A module row names its Module Def and what the dock calls it, which is its
 	sidebar's label: the editor renames Categories, not modules.
 	"""
 	_check()
 	from frappe.boot import get_module_sidebars
 
 	module_sidebars = get_module_sidebars()
-	rail = _rail(module_sidebars)
-	app = next((a for a in rail if a["key"] == key), None)
+	dock = _dock(module_sidebars)
+	app = next((a for a in dock if a["key"] == key), None)
 	if not app:
-		frappe.throw(_("{0} is not on the rail.").format(frappe.bold(key)))
+		frappe.throw(_("{0} is not on the dock.").format(frappe.bold(key)))
 
 	rows, listed = [], set()
 	for entry in app["modules"]:
@@ -481,7 +481,7 @@ def get_app_modules(key: str) -> dict:
 	target = app.get("installed_app")
 	if target:
 		# Modules another app lists are that app's to give up, not this one's to take back.
-		holders = {m["shell"] for other in rail if other is not app for m in other["modules"]}
+		holders = {m["shell"] for other in dock if other is not app for m in other["modules"]}
 		owner = _owner_of(module_sidebars)
 		for shell, sidebar in module_sidebars.items():
 			module = sidebar.get("module") or shell
@@ -511,7 +511,7 @@ def save_app_modules(key: str, items: str | list, stamp: str | None = None) -> d
 
 	Taking one of an installed app's own modules off its list switches the record to
 	Replace, which sends it to Other -- unless its Dock hides it, which already keeps
-	it off the rail. Putting such a module back lists it. Other has nowhere further to send a module, so its
+	it off the dock. Putting such a module back lists it. Other has nowhere further to send a module, so its
 	list is only ever ordered and labelled: nothing is taken off it. A module that came
 	from another app is simply released, back to that app, without changing the mode.
 
@@ -530,7 +530,7 @@ def _store_app_modules(
 ) -> dict:
 	"""`save_app_modules`, for Manage Desk Apps' save as well: returns the `module_sidebars` it ends on.
 
-	`store_order` keeps the rail's order as it was, which a new record could otherwise move;
+	`store_order` keeps the dock's order as it was, which a new record could otherwise move;
 	Manage Desk Apps' save leaves it out, since it writes the whole order itself afterwards.
 	"""
 	from frappe.boot import get_app_data, get_module_sidebars
@@ -538,15 +538,15 @@ def _store_app_modules(
 	if app_data is None:
 		app_data = get_app_data()
 	module_sidebars = get_module_sidebars()
-	rail = _rail(module_sidebars, app_data)
-	app = next((a for a in rail if a["key"] == key), None)
+	dock = _dock(module_sidebars, app_data)
+	app = next((a for a in dock if a["key"] == key), None)
 	if not app:
-		frappe.throw(_("{0} is not on the rail.").format(frappe.bold(key)))
+		frappe.throw(_("{0} is not on the dock.").format(frappe.bold(key)))
 	# An app Frappe lists nowhere, still hidden: the record saved here would be a hidden one that
-	# claims these modules, and they would leave the rail with it, for everyone.
+	# claims these modules, and they would leave the dock with it, for everyone.
 	if app.get("unlisted") and app.get("hidden"):
 		frappe.throw(
-			_("Show {0} on the rail and save first, then manage its modules.").format(
+			_("Show {0} on the dock and save first, then manage its modules.").format(
 				frappe.bold(app.get("title") or key)
 			)
 		)
@@ -556,12 +556,12 @@ def _store_app_modules(
 		# Frappe's answer now has them: each new module gets its own Home workspace, which
 		# is what puts it in `module_sidebars`.
 		module_sidebars = get_module_sidebars()
-		rail = _rail(module_sidebars, app_data)
-		app = next(a for a in rail if a["key"] == key)
+		dock = _dock(module_sidebars, app_data)
+		app = next(a for a in dock if a["key"] == key)
 
-	# The order the rail has now, held before a new record could move this app.
-	order = [a["key"] for a in rail]
-	hidden_apps = {a["key"] for a in rail if a.get("hidden")}
+	# The order the dock has now, held before a new record could move this app.
+	order = [a["key"] for a in dock]
+	hidden_apps = {a["key"] for a in dock if a.get("hidden")}
 
 	visible = {sidebar.get("module") or shell for shell, sidebar in module_sidebars.items()}
 	owner = _owner_of(module_sidebars)
@@ -605,7 +605,7 @@ def _store_app_modules(
 	doc.save()
 
 	if store_order:
-		_store_order(_rail(module_sidebars, app_data), order, hidden_apps, app_data=app_data)
+		_store_order(_dock(module_sidebars, app_data), order, hidden_apps, app_data=app_data)
 	return module_sidebars
 
 
@@ -631,7 +631,7 @@ def _make_new_modules(items: list[dict]) -> list[str]:
 	"""Make the modules the editor added as new: custom Module Defs, of no app.
 
 	A module of no app belongs to the site, as the ones made on the Module Def form do;
-	the Desk App listing it is what places it on the rail. Frappe gives each a Home
+	the Desk App listing it is what places it on the dock. Frappe gives each a Home
 	workspace of its own when it is made.
 	"""
 	names = []
@@ -699,13 +699,13 @@ def _keep_unseen(rows: list[dict], old_rows: list, visible: set[str]) -> list[di
 
 
 def payload(module_sidebars: dict | None = None, app_data: list[dict] | None = None) -> dict:
-	"""The rail and the Apps screen, as the boot would carry them now.
+	"""The dock and the Apps screen, as the boot would carry them now.
 
 	So an editor's save is redrawn in place: `desk_apps`, `app_data` as the
 	Apps screen arranges it, and `module_sidebars` and `workspaces`, which have any module
 	just made and the Home workspace Frappe made for it -- without the second, the desk's
 	router would not know the new module's page until a reload. The browser places each
-	module in its rail app from the rail itself (`js/boot_arrangement.js`).
+	module in its dock app from the dock itself (`js/boot_arrangement.js`).
 	"""
 	from frappe.boot import get_app_data, get_module_sidebars
 
@@ -716,16 +716,16 @@ def payload(module_sidebars: dict | None = None, app_data: list[dict] | None = N
 	if app_data is None:
 		app_data = get_app_data()
 	# Read before the Apps screen rewrites `app_data`, as in the boot.
-	rail = nav.desk_apps(module_sidebars=module_sidebars, app_data=app_data)
+	dock = nav.desk_apps(module_sidebars=module_sidebars, app_data=app_data)
 	# The Apps screen as the boot would arrange it, or the desk's copy would be Frappe's.
 	if apps_screen.enabled():
 		from frappe.boot import get_icon_style
 
-		apps_screen.arrange(app_data, rail, style=get_icon_style(), module_sidebars=module_sidebars)
+		apps_screen.arrange(app_data, dock, style=get_icon_style(), module_sidebars=module_sidebars)
 	from frappe.desk.desktop import get_workspaces
 
 	return {
-		"desk_apps": rail,
+		"desk_apps": dock,
 		"app_data": app_data,
 		"module_sidebars": module_sidebars,
 		"workspaces": get_workspaces(),

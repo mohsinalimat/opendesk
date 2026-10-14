@@ -1,12 +1,12 @@
 app_name = "opendesk"
 app_title = "Open Desk"
 app_publisher = "Peter"
-app_description = "An app rail and other desk navigation extensions for Frappe"
+app_description = "An app dock and other desk navigation extensions for Frappe"
 app_email = "peter@theopen.institute"
 app_license = "MIT"
 
 # On Frappe's Apps screen and in its Apps switcher, for those who may configure it. Declaring this
-# is also what makes Frappe -- and the rail, which follows Frappe's rule -- list Open Desk as an
+# is also what makes Frappe -- and the dock, which follows Frappe's rule -- list Open Desk as an
 # app of its own rather than leave its module under Other (`desk_apps.listed_apps`).
 add_to_apps_screen = [
 	{
@@ -17,7 +17,7 @@ add_to_apps_screen = [
 		"has_permission": "opendesk.open_desk.settings.may_configure",
 	}
 ]
-# Its mark is the `logo` above, which the rail and the Apps screen both read. Not also the
+# Its mark is the `logo` above, which the dock and the Apps screen both read. Not also the
 # `app_logo_url` hook: Frappe falls back to that hook for the *site's* logo when exactly two
 # apps declare one (`navbar_settings.get_app_logo`), so on a site of Frappe and Open Desk alone
 # this app's mark would become the site's.
@@ -31,8 +31,8 @@ app_include_icons = ["/assets/opendesk/icons/module-icons.svg"]
 # ------------------
 
 # Nothing but Frappe. Every feature here changes Frappe's own desk, and each is
-# off until Open Desk Settings switches it on. Other apps add to the rail through
-# `opendesk.rail.tools` (`open_desk/js/rail.js`) and need nothing from this app
+# off until Open Desk Settings switches it on. Other apps add to the dock through
+# `opendesk.dock.tools` (`open_desk/js/dock.js`) and need nothing from this app
 # when it is not installed.
 required_apps = []
 
@@ -48,7 +48,7 @@ app_include_css = "opendesk.bundle.css"
 # ---------------
 
 doc_events = {
-	# The rail's site-level inputs are cached; these are what it reads.
+	# The dock's site-level inputs are cached; these are what it reads.
 	# See `opendesk.open_desk.desk_apps._site_inputs`.
 	**{
 		doctype: {
@@ -68,10 +68,10 @@ after_app_uninstall = ["opendesk.open_desk.doctype.desk_app.desk_app.after_app_u
 # ----
 
 extend_bootinfo = [
-	# The rail's apps, when Open Desk Settings switches it on.
+	# The dock's apps, when Open Desk Settings switches it on.
 	"opendesk.open_desk.desk_apps.extend_bootinfo",
 	# Frappe's Apps screen arranged from the same apps, when Open Desk Settings says so.
-	# After the rail's, whose answer it reuses.
+	# After the dock's, whose answer it reuses.
 	"opendesk.open_desk.apps_screen.extend_bootinfo",
 	# Which of the desk patches Open Desk Settings switches on.
 	"opendesk.open_desk.settings.extend_bootinfo",

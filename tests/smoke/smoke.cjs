@@ -1,14 +1,14 @@
-// A browser smoke test for Open Desk: the rail, its module picker and tools, the user menu, Manage
+// A browser smoke test for Open Desk: the dock, its module picker and tools, the user menu, Manage
 // Desk Apps and Manage Modules, and the Apps screen, on a running site, as one user. The module picker
 // is checked in whichever form Open Desk Settings' Module Picker gives it: Module Menu,
-// Sliding Sidebar, Three Column, Module Tabs, Accordion Rail or Accordion Sidebar.
+// Sliding Sidebar, Three Column, Module Tabs, Accordion Dock or Accordion Sidebar.
 //
 // It only reads. Every editor it opens is closed without saving, and it changes no setting: what it
 // checks is whatever the site has switched on (Open Desk Settings), and a feature switched off is
 // reported as skipped. Run it through `run.sh`, which provides Playwright; see its header.
 //
 // `test_frappe_seams.py` checks that the names Open Desk hangs on are still in Frappe's source.
-// This checks that they still behave: that the rail draws, opens and navigates, and that nothing
+// This checks that they still behave: that the dock draws, opens and navigates, and that nothing
 // throws on the way.
 "use strict";
 
@@ -25,7 +25,7 @@ const PASSWORD = process.env.OPENDESK_SMOKE_PASSWORD;
 const SID = process.env.OPENDESK_SMOKE_SID;
 const HEADED = process.env.OPENDESK_SMOKE_HEADED === "1";
 // A module picker to check in place of the site's -- app_menu, header, sidebar, column, tabs,
-// accordion_rail or accordion_sidebar -- written into the desk's boot as each page loads, so the
+// accordion_dock or accordion_sidebar -- written into the desk's boot as each page loads, so the
 // setting itself is never changed.
 const PICKER = process.env.OPENDESK_SMOKE_PICKER;
 // And what picking an app does, "enter", "enter_item" or "offer", the same way.
@@ -116,7 +116,7 @@ const tabs_on = (page) =>
   page.evaluate(() => document.body.classList.contains("opendesk-tabs-on"));
 
 // Whether the open app's modules are listed somewhere of their own (the column, the band, the
-// rail or the sidebar) rather than in the header menu.
+// dock or the sidebar) rather than in the header menu.
 const beside_on = (page) =>
   page.evaluate(() =>
     document.body.classList.contains("opendesk-modules-beside")
@@ -129,7 +129,7 @@ const PICKER_NAMES = {
   sidebar: "Sliding Sidebar",
   column: "Three Column",
   tabs: "Module Tabs",
-  accordion_rail: "Accordion Rail",
+  accordion_dock: "Accordion Dock",
   accordion_sidebar: "Accordion Sidebar",
 };
 
@@ -143,15 +143,15 @@ const inside_app = (page, title) =>
     title
   );
 
-// Picks the app called `title` on the rail: its tile, or with App Menu, its row in the menu the
-// rail's mark opens.
+// Picks the app called `title` on the dock: its tile, or with App Menu, its row in the menu the
+// dock's mark opens.
 async function pick_app(page, title) {
   const in_menu = await page.evaluate(
     () => frappe.boot.opendesk_features.module_picker === "app_menu"
   );
   if (!in_menu) {
     await page
-      .locator(`.dock .opendesk-rail-app[aria-label="${title}"]`)
+      .locator(`.dock .opendesk-dock-app[aria-label="${title}"]`)
       .click();
     return;
   }
@@ -160,7 +160,7 @@ async function pick_app(page, title) {
   await page.getByRole("menuitem", { name: title, exact: true }).click();
 }
 
-// Picks another app with modules on the rail, then `title` again: the module it came back to,
+// Picks another app with modules on the dock, then `title` again: the module it came back to,
 // which should be the one it was left in.
 async function round_trip(page, title) {
   const other = await page.evaluate(
@@ -287,14 +287,13 @@ const app_with_choice = (page) =>
       );
     });
 
-    // ---------------------------------------------------------------------------------- rail
-    await check("rail draws the apps", async () => {
-      if (!features.navigation_rail)
-        return { skip: "Override Navigation Rail is off" };
+    // ---------------------------------------------------------------------------------- dock
+    await check("dock draws the apps", async () => {
+      if (!features.dock) return { skip: "Override Dock is off" };
       const state = await page.evaluate(() => ({
-        on: document.body.classList.contains("opendesk-rail-on"),
-        tiles: document.querySelectorAll(".dock .opendesk-rail-app").length,
-        modules: document.querySelectorAll(".dock .opendesk-rail-module-tile")
+        on: document.body.classList.contains("opendesk-dock-on"),
+        tiles: document.querySelectorAll(".dock .opendesk-dock-app").length,
+        modules: document.querySelectorAll(".dock .opendesk-dock-module-tile")
           .length,
         mark: document
           .querySelector(".dock .dock-logo .header-title")
@@ -303,24 +302,23 @@ const app_with_choice = (page) =>
       }));
       assert(
         state.on,
-        "body is not marked opendesk-rail-on: the rail did not install"
+        "body is not marked opendesk-dock-on: the dock did not install"
       );
-      // With App Menu the rail holds the open app's modules, under its mark.
+      // With App Menu the dock holds the open app's modules, under its mark.
       if (features.module_picker === "app_menu") {
-        assert(state.modules > 0, "no module tiles on the rail");
+        assert(state.modules > 0, "no module tiles on the dock");
         return `${state.mark}: ${state.modules} module tiles`;
       }
-      assert(state.tiles > 0, "no app tiles on the rail");
+      assert(state.tiles > 0, "no app tiles on the dock");
       return `${state.tiles} tiles for ${state.apps} apps`;
     });
 
-    await check("rail foot has Search and Notifications", async () => {
-      if (!features.navigation_rail)
-        return { skip: "Override Navigation Rail is off" };
-      if (!features.rail_tools)
-        return { skip: "Move Search and Notifications to Rail is off" };
+    await check("dock foot has Search and Notifications", async () => {
+      if (!features.dock) return { skip: "Override Dock is off" };
+      if (!features.dock_tools)
+        return { skip: "Move Search and Notifications to Dock is off" };
       const tools = await page.$$eval(
-        ".opendesk-rail-tools [data-tool]",
+        ".opendesk-dock-tools [data-tool]",
         (els) => els.map((el) => el.dataset.tool)
       );
       assert(tools.includes("search"), `no search tile (${tools.join(", ")})`);
@@ -328,8 +326,7 @@ const app_with_choice = (page) =>
     });
 
     await check("picking an app, and then a module", async () => {
-      if (!features.navigation_rail)
-        return { skip: "Override Navigation Rail is off" };
+      if (!features.dock) return { skip: "Override Dock is off" };
       const picker = features.module_picker || "header";
       const name = PICKER_NAMES[picker] || picker;
       const app = await app_with_choice(page);
@@ -427,7 +424,7 @@ const app_with_choice = (page) =>
       }
 
       if (
-        ["app_menu", "tabs", "accordion_rail", "accordion_sidebar"].includes(
+        ["app_menu", "tabs", "accordion_dock", "accordion_sidebar"].includes(
           picker
         ) &&
         (await beside_on(page))
@@ -438,9 +435,9 @@ const app_with_choice = (page) =>
         );
         assert(browsing === title, `${title} is not on show (${browsing})`);
         const rows = {
-          app_menu: ".dock .opendesk-rail-module-tile",
+          app_menu: ".dock .opendesk-dock-module-tile",
           tabs: ".opendesk-tabs-row .opendesk-tab:not(.hidden)",
-          accordion_rail: `.dock .opendesk-rail-app[aria-label="${title}"] + .opendesk-rail-group:not(.opendesk-rail-group-folded) .opendesk-rail-module`,
+          accordion_dock: `.dock .opendesk-dock-app[aria-label="${title}"] + .opendesk-dock-group:not(.opendesk-dock-group-folded) .opendesk-dock-module`,
           accordion_sidebar:
             ".body-sidebar .opendesk-accordion-module .item-anchor",
         }[picker];
@@ -485,8 +482,7 @@ const app_with_choice = (page) =>
     });
 
     await check("the header menu opens", async () => {
-      if (!features.navigation_rail)
-        return { skip: "Override Navigation Rail is off" };
+      if (!features.dock) return { skip: "Override Dock is off" };
       // Beside the band of tabs the header is not drawn when its menu would hold nothing, and
       // Edit Sidebar is the corner's button.
       const hidden = await page.evaluate(() =>
@@ -560,18 +556,18 @@ const app_with_choice = (page) =>
         () =>
           !!(
             window.opendesk &&
-            opendesk.rail &&
-            opendesk.rail.can_manage &&
-            opendesk.rail.can_manage()
+            opendesk.dock &&
+            opendesk.dock.can_manage &&
+            opendesk.dock.can_manage()
           )
       )
       .catch(() => false);
 
     await check("Manage Desk Apps opens and lists every app", async () => {
-      if (!features.navigation_rail && !features.apps_screen)
-        return { skip: "the rail and the Apps screen are off" };
+      if (!features.dock && !features.apps_screen)
+        return { skip: "the dock and the Apps screen are off" };
       if (!can_manage) return { skip: `${USER} may not edit Desk Apps` };
-      await page.evaluate(() => opendesk.rail.manage_rail());
+      await page.evaluate(() => opendesk.dock.manage_dock());
       await page.waitForSelector(".modal.show .ws-arrangement-item", {
         timeout: 15000,
       });
@@ -584,7 +580,7 @@ const app_with_choice = (page) =>
           .locator(".modal.show .opendesk-screen-mode")
           .count();
         assert(buttons > 0, "no row has an Apps Screen setting");
-        if (features.navigation_rail) {
+        if (features.dock) {
           await page
             .locator(
               ".modal.show .opendesk-preview-switch button[data-view=screen]"
@@ -603,8 +599,7 @@ const app_with_choice = (page) =>
     });
 
     await check("Manage Modules opens from the module picker", async () => {
-      if (!features.navigation_rail)
-        return { skip: "Override Navigation Rail is off" };
+      if (!features.dock) return { skip: "Override Dock is off" };
       if (!can_manage) return { skip: `${USER} may not edit Desk Apps` };
       const picker = features.module_picker || "header";
       const app = await app_with_choice(page);
@@ -676,7 +671,7 @@ const app_with_choice = (page) =>
         `${state.tiles} tiles for ${state.expected} entries`
       );
       let detail = `${state.tiles} tiles`;
-      if ((features.navigation_rail || features.apps_screen) && can_manage) {
+      if ((features.dock || features.apps_screen) && can_manage) {
         await page.locator(".desktop-avatar").click();
         await page.waitForTimeout(400);
         const rows = await page.$$eval(MENU_ROWS, (els) =>
@@ -695,8 +690,7 @@ const app_with_choice = (page) =>
     await check(
       "an Apps screen tile does what picking its app does",
       async () => {
-        if (!features.navigation_rail)
-          return { skip: "Override Navigation Rail is off" };
+        if (!features.dock) return { skip: "Override Dock is off" };
         const title = await page.evaluate(() => {
           const tiles = [
             ...document.querySelectorAll(
@@ -746,7 +740,7 @@ const app_with_choice = (page) =>
           );
           assert(listed, `${title}: landed without the module list`);
         } else if (picker !== "header" && (await beside_on(page))) {
-          // It lands in the app's first module: the column, the band, the rail or the sidebar
+          // It lands in the app's first module: the column, the band, the dock or the sidebar
           // shows that app.
           assert(await inside_app(page, title), `${title}: landed elsewhere`);
           if (picker === "tabs") {

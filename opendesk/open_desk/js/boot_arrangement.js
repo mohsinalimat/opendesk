@@ -1,12 +1,12 @@
 // Open Desk's arrangement of the desk's boot, kept when Frappe replaces it.
 //
-// The rail and the Apps screen both work by arranging two things in `frappe.boot` that Frappe's
+// The dock and the Apps screen both work by arranging two things in `frappe.boot` that Frappe's
 // own desk reads:
 //
 //   - `module_sidebars[shell].app`, which app a module is in. Frappe's header takes its title and
-//     logo from there, and it decides which app is open. The rail writes each module's rail app
-//     into it, here, from the rail itself (`opendesk.boot_arrangement.place`).
-//   - `app_data`, the apps Frappe knows. The rail adds an entry for each rail app Frappe has no
+//     logo from there, and it decides which app is open. The dock writes each module's dock app
+//     into it, here, from the dock itself (`opendesk.boot_arrangement.place`).
+//   - `app_data`, the apps Frappe knows. The dock adds an entry for each dock app Frappe has no
 //     record of (a Desk App of its own, Other) and retitles a bound one; the Apps screen
 //     setting has already arranged its tiles on the server (`apps_screen.py`).
 //
@@ -16,7 +16,7 @@
 // the Apps screen's tiles, titles and order from the copy the boot arrived with; everything else
 // in it is Frappe's new answer.
 //
-// The rail only places modules once it has checked that it can draw (`place`), and stops if it
+// The dock only places modules once it has checked that it can draw (`place`), and stops if it
 // gives up (`release`), putting back what Frappe said.
 frappe.provide("opendesk.boot_arrangement");
 
@@ -25,7 +25,7 @@ frappe.provide("opendesk.boot_arrangement");
 	if (!boot) return;
 	const features = boot.opendesk_features || {};
 	// Nothing to arrange, so Frappe's boot is left exactly as it is: no watchers installed.
-	if (!features.navigation_rail && !features.apps_screen) return;
+	if (!features.dock && !features.apps_screen) return;
 
 	// What the Apps screen setting decides about an app, and so takes back from a replacement.
 	const ARRANGED = ["app_title", "app_logo_url", "app_route", "on_apps_screen", "sequence_id"];
@@ -34,11 +34,11 @@ frappe.provide("opendesk.boot_arrangement");
 	// The Apps screen as the server arranged it, while that setting is on.
 	let arranged =
 		features.apps_screen && Array.isArray(boot.app_data) ? snapshot(boot.app_data) : null;
-	// The rail's apps, once the rail asks for its modules to be placed.
-	let rail = null;
+	// The dock's apps, once the dock asks for its modules to be placed.
+	let dock = null;
 	// Frappe's own answer for each module entry, so placing again, or giving up, starts from it.
 	const origins = new WeakMap();
-	// And for each `app_data` entry the rail retitled, and the entries it added: what `release`
+	// And for each `app_data` entry the dock retitled, and the entries it added: what `release`
 	// puts back and takes out, so Frappe's header names Frappe's apps again.
 	const retitled = new WeakMap();
 	const added_entries = new WeakSet();
@@ -46,7 +46,7 @@ frappe.provide("opendesk.boot_arrangement");
 	function place_modules(module_sidebars) {
 		if (!module_sidebars) return;
 		const placement = {};
-		(rail || []).forEach((app) =>
+		(dock || []).forEach((app) =>
 			(app.modules || []).forEach((module) => (placement[module.shell] = app.app_name))
 		);
 		Object.entries(module_sidebars).forEach(([shell, sidebar]) => {
@@ -56,12 +56,12 @@ frappe.provide("opendesk.boot_arrangement");
 		});
 	}
 
-	// A rail app Frappe does not know gets an entry of its own, kept off the Apps screen; a bound
+	// A dock app Frappe does not know gets an entry of its own, kept off the Apps screen; a bound
 	// one gives Frappe's entry its title and logo.
-	function add_rail_entries(app_data) {
-		if (!rail || !Array.isArray(app_data)) return;
+	function add_dock_entries(app_data) {
+		if (!dock || !Array.isArray(app_data)) return;
 		const known = new Map(app_data.map((entry) => [entry.app_name, entry]));
-		rail.forEach((app) => {
+		dock.forEach((app) => {
 			const entry = known.get(app.app_name);
 			if (entry) {
 				if (app.configured) {
@@ -140,28 +140,28 @@ frappe.provide("opendesk.boot_arrangement");
 	}
 
 	watch("module_sidebars", (value) => {
-		if (rail) place_modules(value);
+		if (dock) place_modules(value);
 		return value;
 	});
 	watch("app_data", (value) => {
 		if (!Array.isArray(value)) return value;
 		const result = rearrange(value);
-		add_rail_entries(result);
+		add_dock_entries(result);
 		return result;
 	});
 
 	Object.assign(opendesk.boot_arrangement, {
-		// Place each module in its rail app, now and whenever Frappe replaces the boot's copy.
-		// Called again with the same array after the rail is refilled.
-		place(rail_apps) {
-			rail = rail_apps;
+		// Place each module in its dock app, now and whenever Frappe replaces the boot's copy.
+		// Called again with the same array after the dock is refilled.
+		place(dock_apps) {
+			dock = dock_apps;
 			place_modules(boot.module_sidebars);
-			add_rail_entries(boot.app_data);
+			add_dock_entries(boot.app_data);
 		},
 		// Back to Frappe's placement, titles and logos, and stop placing. The Apps screen's own
 		// arrangement, a setting of its own, stays.
 		release() {
-			rail = null;
+			dock = null;
 			Object.values(boot.module_sidebars || {}).forEach((sidebar) => {
 				if (sidebar && origins.has(sidebar)) sidebar.app = origins.get(sidebar);
 			});

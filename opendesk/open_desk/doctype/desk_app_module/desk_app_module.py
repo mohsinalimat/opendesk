@@ -4,9 +4,9 @@
 """One row of a Desk App's module list: a module (a Module Def), or a Category
 heading or a Spacer between them.
 
-A module row carries no name of its own: the rail calls a module what its sidebar
+A module row carries no name of its own: the dock calls a module what its sidebar
 does, which a site changes with a `Custom Sidebar` (Edit Sidebar), so the module
-reads the same on the rail, in the header and in the switcher."""
+reads the same on the dock, in the header and in the switcher."""
 
 from frappe.model.document import Document
 

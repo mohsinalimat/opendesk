@@ -5,7 +5,7 @@
 #
 # Optional: OPENDESK_SMOKE_USER (default Administrator), OPENDESK_SMOKE_HEADED=1 to watch it, or
 # OPENDESK_SMOKE_SID=<a session's sid cookie> in place of the password, and OPENDESK_SMOKE_PICKER=
-# (app_menu, header, sidebar, column, tabs, accordion_rail or accordion_sidebar) to check that module
+# (app_menu, header, sidebar, column, tabs, accordion_dock or accordion_sidebar) to check that module
 # picker rather than the site's, and OPENDESK_SMOKE_APP_PICK= (enter, enter_item or offer) for Picking an App,
 # without changing either setting.
 #

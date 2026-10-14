@@ -1,15 +1,15 @@
 # Copyright (c) 2026, Peter and contributors
 # For license information, please see license.txt
 
-"""An entry on the navigation rail: a named group of modules, or the stand-in
+"""An entry on the dock: a named group of modules, or the stand-in
 for an installed app.
 
-What the rail makes of these, and of the modules none of them claims, is
+What the dock makes of these, and of the modules none of them claims, is
 `opendesk.open_desk.desk_apps`. This controller only refuses the
 shapes that resolver could not give a stable answer for:
 
 - an installed app that is not installed, or one another enabled record
-  already stands for. The rail has one place for each app, so the second is
+  already stands for. The dock has one place for each app, so the second is
   refused and told which record has it;
 
 - a module row with no module, or a Category with no heading. A Category or
@@ -22,7 +22,7 @@ shapes that resolver could not give a stable answer for:
   enabled -- and again when a disabled one is switched back on.
 
 It also warns, without refusing, when a picture is a private file, which the
-rail and the Apps screen cannot load.
+dock and the Apps screen cannot load.
 
 And it tidies up after an app is uninstalled (`before_app_uninstall`,
 `after_app_uninstall`).
@@ -70,20 +70,20 @@ class DeskApp(Document):
 		logo: DF.AttachImage | None
 		module_mode: DF.Literal["Add", "Replace"]
 		modules: DF.Table[DeskAppModule]
-		rail_after: DF.Data | None
+		dock_after: DF.Data | None
 		roles: DF.Table[HasRole]
 		title: DF.Data
 	# end: auto-generated types
 
 	def validate(self):
-		self.rail_after = (self.rail_after or "").strip() or None
+		self.dock_after = (self.dock_after or "").strip() or None
 		self.validate_marks()
 		self.validate_installed_app()
 		self.validate_modules()
 		self.warn_private_images()
 
 	def validate_marks(self):
-		"""Refuse what the rail and the Apps screen would put into the page as code.
+		"""Refuse what the dock and the Apps screen would put into the page as code.
 
 		The frontend link becomes a link everyone on the site clicks, so it has to be a page
 		on this site or a web address: anything else (`javascript:`) would run as whoever
@@ -104,7 +104,7 @@ class DeskApp(Document):
 		if not self.installed_app:
 			return
 		# Checked only when it changes, so a record for an app since uninstalled
-		# can still be saved (the rail ignores it until the app is back).
+		# can still be saved (the dock ignores it until the app is back).
 		if self.has_value_changed("installed_app") and self.installed_app not in installed_app_names():
 			frappe.throw(_("{0} is not an installed app.").format(frappe.bold(self.installed_app)))
 		if not self.enabled:
@@ -161,14 +161,14 @@ class DeskApp(Document):
 		"""Keep the apps placed after this one there: an anchor names a site app by its record."""
 		frappe.db.set_value(
 			APP,
-			{"rail_after": f"desk-app:{old}"},
-			"rail_after",
+			{"dock_after": f"desk-app:{old}"},
+			"dock_after",
 			f"desk-app:{new}",
 			update_modified=False,
 		)
 
 	def warn_private_images(self):
-		"""Say so when a picture is a private file, which the rail and the Apps screen cannot load.
+		"""Say so when a picture is a private file, which the dock and the Apps screen cannot load.
 
 		A warning, not a refusal: the record is still right, only its picture
 		is missing until the file is made public.

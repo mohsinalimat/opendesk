@@ -9,13 +9,13 @@ sends each to its landing route: the entry's `app_route`, else the first row of 
 `dock`, else its first module (`Sidebar.app_landing_route`). So the screen is arranged
 here, in the boot, and Frappe draws it -- nothing in the browser is patched.
 
-Each app on the rail, in rail order, as its Desk App's Apps Screen setting says:
+Each app on the dock, in dock order, as its Desk App's Apps Screen setting says:
 
 - Default (and every app with no record): what Frappe would do. An installed app gets
   its own tile when it asks for one (`add_to_apps_screen`, and not mounted on another
   app), and none otherwise -- Telephony and Print Designer do not ask. Other has no
   tile, since Frappe has no such app. An app of the site's own gets one.
-- One Icon: its own tile, under its rail title and logo, whether or not the app asks.
+- One Icon: its own tile, under its dock title and logo, whether or not the app asks.
 - Icon per Module: a tile for each of its modules, in its order -- and one for its
   frontend, first, if it has one -- each opening that module. A module's picture is its
   row's Apps Screen Image, else its own icon -- the one its sidebar header and the Dock
@@ -25,9 +25,9 @@ Each app on the rail, in rail order, as its Desk App's Apps Screen setting says:
   module by file name is guesswork.
 - App and Module Icons: the app's own tile, then its module tiles, as above. The frontend
   gets no tile of its own when the app's tile already opens it.
-- Hidden: no tile; it stays on the rail.
+- Hidden: no tile; it stays on the dock.
 
-An app taken off the rail is off the Apps screen too, and every other entry is turned off.
+An app taken off the dock is off the Apps screen too, and every other entry is turned off.
 
 A tile that leads to `/app/...`, the desk's address before 16.50, is pointed at the same page
 under `/desk/...`. Frappe's own `app_home` is still `/app/build`: the desk does not treat that
@@ -36,9 +36,9 @@ as its own link, so the browser loads it from the server, which redirects it
 before the click, so the tile opens in place like every other.
 
 A module tile is an `app_data` entry of its own, named `opendesk-module:<shell>`, whose
-`dock` is that one module: Frappe's landing ladder then opens the module the way a rail
+`dock` is that one module: Frappe's landing ladder then opens the module the way a dock
 tile would. Such entries are only ever on the Apps screen; the module still belongs to
-its rail app everywhere else.
+its dock app everywhere else.
 
 Off unless Open Desk Settings' "Override Desktop Icons" is ticked, and off too
 while Desktop Settings' Desktop Page is "Desktop Icons": that is Frappe's older icon grid,
@@ -61,7 +61,7 @@ HIDDEN = "Hidden"
 
 
 def extend_bootinfo(bootinfo: "frappe._dict") -> None:
-	"""Arrange the Apps screen, when Open Desk Settings says so. Runs after the rail's hook."""
+	"""Arrange the Apps screen, when Open Desk Settings says so. Runs after the dock's hook."""
 	from opendesk.open_desk import settings
 
 	try:
@@ -69,14 +69,14 @@ def extend_bootinfo(bootinfo: "frappe._dict") -> None:
 			return
 		if bootinfo.get("module_sidebars") is None or bootinfo.get("app_data") is None:
 			return
-		rail = bootinfo.get("desk_apps")
-		if rail is None:
-			rail = nav.desk_apps(module_sidebars=bootinfo.module_sidebars, app_data=bootinfo.app_data)
+		dock = bootinfo.get("desk_apps")
+		if dock is None:
+			dock = nav.desk_apps(module_sidebars=bootinfo.module_sidebars, app_data=bootinfo.app_data)
 		# Arranged on a copy and handed over whole, so a failure halfway leaves Frappe's as it was.
 		app_data = copy.deepcopy(bootinfo.app_data)
 		arrange(
 			app_data,
-			rail,
+			dock,
 			style=bootinfo.get("desktop_icon_style"),
 			module_sidebars=bootinfo.get("module_sidebars"),
 		)
@@ -100,11 +100,11 @@ def enabled() -> bool:
 
 def arrange(
 	app_data: list[dict],
-	rail: list[dict],
+	dock: list[dict],
 	style: str | None = None,
 	module_sidebars: dict | None = None,
 ) -> None:
-	"""Rewrite `app_data` in place so the Apps screen shows `rail` as its settings say.
+	"""Rewrite `app_data` in place so the Apps screen shows `dock` as its settings say.
 
 	`style` is the boot's `desktop_icon_style`, the set the site draws (Solid or Subtle).
 	`module_sidebars` is the boot's too: which app each module is Frappe's, for the
@@ -119,7 +119,7 @@ def arrange(
 		entry["on_apps_screen"] = False
 
 	sequence = 0
-	for app in rail:
+	for app in dock:
 		mode = app.get("apps_screen") or DEFAULT
 		app_route = (by_name.get(app["app_name"]) or {}).get("app_route")
 		for kind, item in plan(app, mode, asked, app_route):
@@ -165,10 +165,10 @@ def desk_address(route: str | None) -> str | None:
 
 
 def plan(app: dict, mode: str | None, asked: set[str], app_route: str | None = None) -> list[tuple]:
-	"""The tiles one rail app gets in `mode`, in order: `(kind, item)` for kind app, frontend or module.
+	"""The tiles one dock app gets in `mode`, in order: `(kind, item)` for kind app, frontend or module.
 
 	The rules in the module docstring, in one place, so the Apps screen and Manage Desk Apps'
-	preview of it (`arrange.get_rail`) cannot disagree. `asked` is the apps Frappe gives a
+	preview of it (`arrange.get_dock`) cannot disagree. `asked` is the apps Frappe gives a
 	tile of their own; `app_route` is where Frappe's tile for this app already leads.
 	"""
 	mode = mode or DEFAULT
@@ -193,7 +193,7 @@ def _gets_a_tile(app: dict, asked: set[str]) -> bool:
 
 
 def _app_tile(app_data: list[dict], by_name: dict, app: dict, sequence: int) -> dict:
-	"""The app's own tile, under its rail title and logo: Frappe's entry for it, or a new one."""
+	"""The app's own tile, under its dock title and logo: Frappe's entry for it, or a new one."""
 	entry = by_name.get(app["app_name"])
 	if entry is None:
 		entry = _tile(app["app_name"], app["title"], app.get("logo"), sequence)
@@ -203,7 +203,7 @@ def _app_tile(app_data: list[dict], by_name: dict, app: dict, sequence: int) -> 
 	if app.get("logo"):
 		entry["app_logo_url"] = app["logo"]
 	# An app Frappe does not know has no dock of its own; its modules lead into it, so the
-	# tile opens its first one even where the rail has not placed them.
+	# tile opens its first one even where the dock has not placed them.
 	if not entry.get("dock") and not entry.get("app_route"):
 		entry["dock"] = [{"link_type": "Sidebar", "link_to": m["shell"]} for m in app["modules"]]
 	return entry

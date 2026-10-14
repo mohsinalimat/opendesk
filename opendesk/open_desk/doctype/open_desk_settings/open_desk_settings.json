@@ -6,7 +6,7 @@
  "engine": "InnoDB",
  "issingle": 1,
  "links": [],
- "modified": "2026-10-10 14:48:21.475958",
+ "modified": "2026-10-14 20:30:00.000000",
  "modified_by": "Administrator",
  "module": "Open Desk",
  "name": "Open Desk Settings",
@@ -17,65 +17,74 @@
  "states": [],
  "track_changes": 1,
  "field_order": [
-  "overrides_section",
-  "overrides_column",
-  "enable_navigation_rail",
-  "app_pick",
-  "enable_apps_screen",
-  "layout_column",
+  "dock_section",
+  "enable_dock",
   "module_picker",
+  "app_pick_column",
+  "app_pick",
+  "show_dock_on_mobile",
+  "desktop_icons_section",
+  "enable_apps_screen",
   "other_tweaks_section",
-  "enable_rail_tools",
+  "enable_dock_tools",
   "enable_user_menu"
  ],
  "fields": [
   {
-   "description": "These change how Frappe's desk behaves and depend on details of its code that an upgrade can change, so switch them off first if the desk misbehaves after an upgrade. Changes apply when each user reloads the page.",
-   "fieldname": "overrides_section",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "overrides_column",
-   "fieldtype": "Column Break",
-   "label": "Overrides"
+   "description": "These overrides change how Frappe's desk behaves and depend on details of its code that an upgrade can change, so switch them off first if the desk misbehaves after an upgrade. Changes apply when each user reloads the page.",
+   "fieldname": "dock_section",
+   "fieldtype": "Section Break",
+   "label": "Override Dock"
   },
   {
    "default": "0",
-   "description": "Turns the Dock, the column left of the sidebar, into a rail of apps: the Desk Apps, then each installed app Frappe lists on its Apps screen, with every module left over under Other. What picking an app does, and where its modules are shown, are the two settings it brings with it.",
-   "fieldname": "enable_navigation_rail",
+   "description": "Turns the Dock, the column left of the sidebar, into a dock of apps: the Desk Apps, then each installed app Frappe lists on its Apps screen, with every module left over under Other. Where its modules are shown, what picking an app does, and showing it on mobile are the settings it brings with it.",
+   "fieldname": "enable_dock",
    "fieldtype": "Check",
-   "label": "Override Navigation Rail"
-  },
-  {
-   "default": "Open Last Module",
-   "description": "What picking an app on the rail does, whichever Module Picker:<ul style=\"padding-left: 1.2em; margin: 4px 0 0;\"><li><b>Open Last Module</b>: goes into the app, to the module last open in it in this browser (its first, the first time). Picking the app you are already in shows its modules.</li><li><b>Open Last Sidebar Item</b>: the same, but to the sidebar item last open in the app, such as a list or a report, rather than its module's home; to the last module where there is none.</li><li><b>Show Its Modules</b>: shows the app's modules over the page you are on, until you pick one; Escape, a click elsewhere or another page puts them away.</li></ul>",
-   "fieldname": "app_pick",
-   "fieldtype": "Select",
-   "label": "Picking an App",
-   "options": "Open Last Module\nOpen Last Sidebar Item\nShow Its Modules",
-   "depends_on": "eval:doc.enable_navigation_rail"
-  },
-  {
-   "default": "0",
-   "description": "Arranges the icons on Frappe's Apps screen (/desk) from the Desk Apps, in rail order, as each Desk App's Apps Screen setting says. Only where Desktop Settings' Desktop Page is Apps: Frappe's older Desktop Icons grid is left as Frappe draws it. Turned off, Frappe's own Apps screen comes back.",
-   "fieldname": "enable_apps_screen",
-   "fieldtype": "Check",
-   "label": "Override Desktop Icons"
-  },
-  {
-   "fieldname": "layout_column",
-   "fieldtype": "Column Break",
-   "label": "Layout",
-   "depends_on": "eval:doc.enable_navigation_rail"
+   "label": "Enabled"
   },
   {
    "default": "Module Menu",
-   "description": "Where an app's modules are shown:<ul style=\"padding-left: 1.2em; margin: 4px 0 0;\"><li><b>Module Menu</b>: the menu at the top of the sidebar lists the app's modules. The sidebar always holds the module's content.</li><li><b>App Menu</b>: as Frappe's own rail: the app's mark at the top and its modules under it, one icon each. The mark opens a menu of the apps, in place of the Apps screen.</li><li><b>Sliding Sidebar</b>: the sidebar's rows become the app's modules when you pick the app, until you pick one; a row at the top of a module's content goes back to the list.</li><li><b>Module Tabs</b>: the modules are tabs in a band across the top, over the sidebar and the page, with the app's name first. Tabs that do not fit go under More.</li><li><b>Three Column</b>: the modules get a column of their own between the rail and the sidebar. It folds to icons and opens over the sidebar while pointed at.</li><li><b>Accordion Rail</b>: the open app's tile opens up on the rail to show its modules under it, one icon each; clicking the open app folds them away.</li><li><b>Accordion Sidebar</b>: the sidebar lists the app's modules as headings, the open module's content under its own.</li></ul>Below 768px, all but Sliding Sidebar and Accordion Sidebar pick from the menu at the top of the sidebar.",
+   "description": "Where an app's modules are shown:<ul style=\"padding-left: 1.2em; margin: 4px 0 0;\"><li><b>Module Menu</b>: the menu at the top of the sidebar lists the app's modules. The sidebar always holds the module's content.</li><li><b>App Menu</b>: as Frappe's own dock: the app's mark at the top and its modules under it, one icon each. The mark opens a menu of the apps, in place of the Apps screen.</li><li><b>Sliding Sidebar</b>: the sidebar's rows become the app's modules when you pick the app, until you pick one; a row at the top of a module's content goes back to the list.</li><li><b>Module Tabs</b>: the modules are tabs in a band across the top, over the sidebar and the page, with the app's name first. Tabs that do not fit go under More.</li><li><b>Three Column</b>: the modules get a column of their own between the dock and the sidebar. It folds to icons and opens over the sidebar while pointed at.</li><li><b>Accordion Dock</b>: the open app's tile opens up on the dock to show its modules under it, one icon each; clicking the open app folds them away.</li><li><b>Accordion Sidebar</b>: the sidebar lists the app's modules as headings, the open module's content under its own.</li></ul>Below 768px, Module Tabs and Three Column pick from the menu at the top of the sidebar, and so do App Menu and Accordion Dock when the dock is not shown on mobile.",
    "fieldname": "module_picker",
    "fieldtype": "Select",
-   "label": "Module Picker",
-   "options": "Module Menu\nApp Menu\nSliding Sidebar\nModule Tabs\nThree Column\nAccordion Rail\nAccordion Sidebar",
-   "depends_on": "eval:doc.enable_navigation_rail"
+   "label": "Layout",
+   "options": "Module Menu\nApp Menu\nSliding Sidebar\nModule Tabs\nThree Column\nAccordion Dock\nAccordion Sidebar",
+   "depends_on": "eval:doc.enable_dock"
+  },
+  {
+   "fieldname": "app_pick_column",
+   "fieldtype": "Column Break",
+   "depends_on": "eval:doc.enable_dock"
+  },
+  {
+   "default": "Show Its Modules",
+   "description": "What picking an app on the dock does, whichever Layout:<ul style=\"padding-left: 1.2em; margin: 4px 0 0;\"><li><b>Show Its Modules</b>: shows the app's modules over the page you are on, until you pick one; Escape, a click elsewhere, or another page puts them away.</li><li><b>Open Last Module</b>: goes into the app, to the module last open in it in this browser (its first, the first time). Picking the app you are already in shows its modules.</li><li><b>Open Last Sidebar Item</b>: the same, but to the sidebar item last open in the app, such as a list or a report, rather than its module's home; to the last module where there is none.</li></ul>",
+   "fieldname": "app_pick",
+   "fieldtype": "Select",
+   "label": "Picking an App",
+   "options": "Show Its Modules\nOpen Last Module\nOpen Last Sidebar Item",
+   "depends_on": "eval:doc.enable_dock"
+  },
+  {
+   "default": "1",
+   "description": "Below 768px, where the sidebar is a drawer opened from the button at the top left of the page, shows the dock in the drawer, left of the sidebar, so apps are picked there as on a wider screen. Turned off, the dock is hidden on phones, as Frappe hides it, and the menu at the top of the sidebar lists the apps.",
+   "fieldname": "show_dock_on_mobile",
+   "fieldtype": "Check",
+   "label": "Show Dock on Mobile",
+   "depends_on": "eval:doc.enable_dock"
+  },
+  {
+   "fieldname": "desktop_icons_section",
+   "fieldtype": "Section Break",
+   "label": "Override Desktop Icons"
+  },
+  {
+   "default": "0",
+   "description": "Arranges the icons on Frappe's Apps screen (/desk) from the Desk Apps, in dock order, as each Desk App's Apps Screen setting says. Only where Desktop Settings' Desktop Page is Apps: Frappe's older Desktop Icons grid is left as Frappe draws it. Turned off, Frappe's own Apps screen comes back.",
+   "fieldname": "enable_apps_screen",
+   "fieldtype": "Check",
+   "label": "Enabled"
   },
   {
    "fieldname": "other_tweaks_section",
@@ -84,11 +93,11 @@
   },
   {
    "default": "0",
-   "fieldname": "enable_rail_tools",
+   "fieldname": "enable_dock_tools",
    "fieldtype": "Check",
-   "label": "Move Search and Notifications to Rail",
-   "description": "Moves Search and Notifications, and any tiles other apps add there (such as To Do), from the top of the sidebar to the foot of the rail, where their drawers open beside the rail. Turned off, they stay where Frappe puts them. Needs Override Navigation Rail.",
-   "depends_on": "eval:doc.enable_navigation_rail"
+   "label": "Move Search and Notifications to Dock",
+   "description": "Moves Search and Notifications, and any tiles other apps add there (such as To Do), from the top of the sidebar to the foot of the dock, where their drawers open beside the dock. Turned off, they stay where Frappe puts them. Needs Override Dock to be enabled.",
+   "depends_on": "eval:doc.enable_dock"
   },
   {
    "default": "0",
