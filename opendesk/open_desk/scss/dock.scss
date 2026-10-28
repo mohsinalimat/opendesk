@@ -157,41 +157,40 @@ body.opendesk-dock-on .body-sidebar-top {
 	}
 }
 
-// Search, Notifications and other apps' tiles (`opendesk.dock.tools`), at the foot of the dock
-// over the avatar, in the Dock's own tiles, when "Move Search and Notifications to Dock" is on
-// (`opendesk-dock-tools-on`). The sidebar's band of the same rows is hidden wherever the dock is
-// drawn -- beside the sidebar, or in the drawer with it below 768px when "Show Dock on Mobile" is
-// on; on pages without the dock, and on a phone without it, the band stays.
-body.opendesk-dock-tools-on .dock .opendesk-dock-tools {
-	flex: 0 0 auto;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 6px;
-	width: 100%;
-	padding: 6px 0;
-
-	.dock-item {
-		position: relative;
-	}
-
-	// The unread count, as a small badge on the bell's corner; another app's tile's badge the same way.
+// Frappe's Search and Notifications at the top of the dock (`.dock-utilities`, 16.53), which it
+// shows while the dock is pinned or the page has no sidebar, and hides from the sidebar's band of
+// standard rows beside a pinned dock.
+//
+// The unread count, which Frappe draws as a dot (`.dock-item-dot`, its text hidden; and drawn as a
+// bar, since the dot keeps the pill's side padding), is a number on the bell's corner, as it is
+// in the sidebar. Other apps' tiles' badges (`opendesk-dock-count`) the same way.
+body.opendesk-dock-on .dock .dock-utilities {
+	.notification-count,
 	.opendesk-dock-count {
 		position: absolute;
-		top: 2px;
-		right: 2px;
+		top: -3px;
+		right: -5px;
+		width: auto;
 		min-width: 16px;
 		height: 16px;
 		padding: 0 4px;
+		border: 1px solid var(--dock-bg);
 		border-radius: 8px;
 		background: var(--red-500);
 		color: var(--white);
 		font-size: 10px;
-		line-height: 16px;
+		font-weight: 600;
+		line-height: 14px;
 		text-align: center;
+		overflow: visible;
 	}
 }
 
+// With "Move Other Apps' Tiles to Dock" (`opendesk-dock-tools-on`) other apps' tiles (`opendesk.dock.tools`)
+// join Search and Notifications on the dock, and the sidebar's band, where those apps put them,
+// goes wherever Frappe takes the pair out of it: beside a pinned dock, and in the drawer with the
+// dock below 768px when "Show Dock on Mobile" is on. Beside a floating dock, on pages without the
+// dock, and on a phone without it, the band stays, and Frappe's pair with it.
 @mixin without-standard-items-band {
 	.body-sidebar .standard-items-band {
 		display: none;
@@ -204,13 +203,22 @@ body.opendesk-dock-tools-on .dock .opendesk-dock-tools {
 }
 
 @media (max-width: 767px) {
-	body.opendesk-dock-tools-on.opendesk-mobile-dock-on.dock-active {
+	// Frappe takes its pair out of the band beside a pinned dock from 768px up only; below, the
+	// dock is pinned in the drawer by Open Desk, so the band loses them here too.
+	body.opendesk-mobile-dock-on.dock-pinned.dock-active .body-sidebar .standard-items-band {
+		> .navbar-modal-search-mobile,
+		> .sidebar-notification {
+			display: none;
+		}
+	}
+
+	body.opendesk-dock-tools-on.opendesk-mobile-dock-on.dock-pinned.dock-active {
 		@include without-standard-items-band;
 	}
 }
 
 @media (min-width: 768px) {
-	body.opendesk-dock-tools-on.dock-active {
+	body.opendesk-dock-tools-on.dock-pinned.dock-active {
 		@include without-standard-items-band;
 	}
 

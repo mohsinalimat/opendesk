@@ -313,16 +313,25 @@ const app_with_choice = (page) =>
       return `${state.tiles} tiles for ${state.apps} apps`;
     });
 
-    await check("dock foot has Search and Notifications", async () => {
+    await check("dock has Search and Notifications once", async () => {
       if (!features.dock) return { skip: "Override Dock is off" };
-      if (!features.dock_tools)
-        return { skip: "Move Search and Notifications to Dock is off" };
-      const tools = await page.$$eval(
-        ".opendesk-dock-tools [data-tool]",
-        (els) => els.map((el) => el.dataset.tool)
-      );
-      assert(tools.includes("search"), `no search tile (${tools.join(", ")})`);
-      return tools.join(", ");
+      const dock = await page.evaluate(() => ({
+        search: document.querySelectorAll(".dock .navbar-modal-search-mobile")
+          .length,
+        bells: document.querySelectorAll(".dock .sidebar-notification").length,
+        tools: [
+          ...document.querySelectorAll(".dock .dock-utilities [data-tool]"),
+        ].map((el) => el.dataset.tool),
+      }));
+      // Frappe's own pair (`Dock.render_utilities`); Open Desk draws no second one.
+      assert(dock.search <= 1, `${dock.search} Search tiles on the dock`);
+      assert(dock.bells <= 1, `${dock.bells} bells on the dock`);
+      const tiles = [
+        dock.search && "search",
+        dock.bells && "notifications",
+        ...dock.tools,
+      ].filter(Boolean);
+      return tiles.join(", ") || "none";
     });
 
     await check("picking an app, and then a module", async () => {

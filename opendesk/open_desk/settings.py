@@ -16,8 +16,8 @@ SETTINGS = "Open Desk Settings"
 
 # `js/dock.js`, Frappe's Dock listing the apps `desk_apps` resolves
 ENABLE_DOCK = "enable_dock"
-# The dock's foot: Search, Notifications and other apps' tiles moved there from the top of the
-# sidebar (`js/dock.js`, `scss/dock.scss`). Only with the dock.
+# Other apps' tiles moved from the top of the sidebar onto the dock, under the Search and
+# Notifications Frappe puts there (`js/dock.js`, `scss/dock.scss`). Only with the dock.
 ENABLE_DOCK_TOOLS = "enable_dock_tools"
 # Below 768px, the dock in the sidebar's drawer (`js/dock.js`, `scss/dock.scss`). On unless
 # switched off: a site that has not saved the settings since the field arrived has no value for it.

@@ -8,9 +8,9 @@ Open Desk Settings:
   installed app's, with **Desk App** records (or Manage Desk Apps and Manage Modules
   from the user menu). Modules no Desk App claims stay under their installed
   app; those of apps Frappe lists nowhere are under Other.
-- **Move Search and Notifications to Dock.** With the dock, Search,
-  Notifications and other apps' tiles move from the top of the sidebar to the
-  foot of the dock.
+- **Move Other Apps' Tiles to Dock.** Frappe puts Search and Notifications on
+  a pinned dock; with this, the tiles other apps add beside them (such as
+  Commons' To Do) move from the top of the sidebar onto the dock with them.
 - **Override Desktop Icons.** Frappe's Apps screen (`/desk`) arranged in dock
   order: Frappe's default, one icon, an icon per module, the app and its
   modules, or none -- set per app in Manage Desk Apps (also in the Apps screen's
@@ -19,7 +19,7 @@ Open Desk Settings:
 - **Move Help and Site Tools to User Menu.** The site's Navbar Settings rows and
   Help move from the sidebar header's menu into the user menu.
 
-Other apps can add tiles at the foot of the dock through `opendesk.dock.tools`;
+Other apps can add tiles to the dock through `opendesk.dock.tools`;
 see `opendesk/open_desk/js/dock.js`.
 
 ### Installation

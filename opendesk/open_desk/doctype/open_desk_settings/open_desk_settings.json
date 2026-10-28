@@ -6,7 +6,7 @@
  "engine": "InnoDB",
  "issingle": 1,
  "links": [],
- "modified": "2026-10-14 20:30:00.000000",
+ "modified": "2026-10-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Open Desk",
  "name": "Open Desk Settings",
@@ -95,8 +95,8 @@
    "default": "0",
    "fieldname": "enable_dock_tools",
    "fieldtype": "Check",
-   "label": "Move Search and Notifications to Dock",
-   "description": "Moves Search and Notifications, and any tiles other apps add there (such as To Do), from the top of the sidebar to the foot of the dock, where their drawers open beside the dock. Turned off, they stay where Frappe puts them. Needs Override Dock to be enabled.",
+   "label": "Move Other Apps' Tiles to Dock",
+   "description": "Frappe puts Search and Notifications on the dock while it is pinned. This puts the tiles other apps add beside them at the top of the sidebar (such as To Do) on the dock with them, and opens all their drawers beside the dock, over the sidebar. Turned off, those tiles stay in the sidebar. Needs Override Dock to be enabled.",
    "depends_on": "eval:doc.enable_dock"
   },
   {

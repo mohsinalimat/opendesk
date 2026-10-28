@@ -101,6 +101,9 @@ SEAMS = {
 			"refresh",
 			"should_pin",
 			"apply_pin",
+			# Other apps' tiles join Frappe's Search and Notifications on the dock.
+			"render_utilities",
+			"make_utility",
 		],
 		"properties": [
 			"sidebar",
@@ -114,6 +117,7 @@ SEAMS = {
 			"enabled",
 			"rendered",
 			"header_tooltip",
+			"utility_tooltips",
 		],
 		"strings": [
 			"frappe.ui.Dock =",
@@ -123,6 +127,9 @@ SEAMS = {
 			"dock-item-icon",
 			"dock-item-label",
 			"es-tooltip--plain",
+			# Where Frappe shows Search and Notifications on the dock, and the class saying it does.
+			"dock-utilities",
+			"dock-owns-utilities",
 		],
 	},
 	("ui", "sidebar", "sidebar_header.js"): {
@@ -272,10 +279,23 @@ METHOD_BODIES = {
 			"this.close();",
 		],
 	},
+	("ui", "sidebar", "dock.js"): {
+		# The pair Frappe puts on the dock, carrying the classes search and the bell's panel answer
+		# to; their unread count is the badge `scss/dock.scss` draws as a number.
+		"render_utilities": ["navbar-modal-search-mobile", "sidebar-notification", "notification-count"],
+		# Other apps' tiles are made with it: escaped label, raw classes and badge, tip kept apart.
+		"make_utility": [
+			'make_utility({ label, icon, css_class, badge = "" })',
+			"${css_class}",
+			"${badge}",
+			"this.name_tile($item, label, this.utility_tooltips);",
+		],
+	},
 }
 
-# The sidebar's standard items, by class: the dock hides their band beside it and draws these two
-# at its foot (`js/dock.js`). Anything else Frappe puts in the band would be out of reach.
+# The sidebar's standard items, by class: Frappe draws these two on a pinned dock too, and Open Desk
+# hides the band beside it (`scss/dock.scss`). Anything else Frappe puts in the band would be out
+# of reach.
 STANDARD_ITEMS = {"navbar-modal-search-mobile", "sidebar-notification hidden"}
 
 # The boot data the server half reads, by the source that shapes it.
@@ -349,6 +369,12 @@ SERVER_FUNCTIONS = {
 	"frappe.desk.doctype.desktop_settings.desktop_settings": ["get_desktop_page"],
 	"frappe.desk.desktop": ["get_workspaces"],
 }
+
+# The Dock's slots, by class, top to bottom. Open Desk fills `dock-items` (`render_entries`), the mark
+# in `dock-logo` (`render_logo`) and adds other apps' tiles to `dock-utilities`; a new slot is
+# something Frappe draws on the dock that may already be there in Open Desk's own way, as Search and
+# Notifications were before Frappe 16.53 drew them too.
+DOCK_SLOTS = ["dock-logo", "dock-utilities", "dock-items", "dock-user"]
 
 # The two Dock methods the dock replaces rather than wraps (`render_logo`, `render_entries` in
 # `js/dock.js`), as Frappe wrote them when the dock last matched them. A change fails here: read
@@ -491,6 +517,17 @@ class TestFrappeSeams(TestCase):
 					f"Frappe changed Dock.{name}, which js/dock.js replaces: read the change",
 				)
 
+	def test_the_dock_has_the_slots_open_desk_fills(self):
+		source = _source(*JS, "ui", "sidebar", "dock.js")
+		make = re.search(r"(?ms)^\tmake\(\) \{\n.*?^\t\}\n", source)
+		self.assertTrue(make, "Dock.make is not in dock.js")
+		self.assertEqual(
+			re.findall(r'<div class="(dock-[\w-]+)"', make.group(0)),
+			DOCK_SLOTS,
+			"Frappe changed the Dock's slots: see whether what it draws in a new one is already on "
+			"Open Desk's dock",
+		)
+
 	def test_the_apps_screen_page_still_offers_what_the_dock_reads(self):
 		for parts, texts in DESKTOP_SEAMS.items():
 			source = _source(*parts)
@@ -528,7 +565,7 @@ class TestFrappeSeams(TestCase):
 			set(re.findall(r'class: "([^"]+)"', body.group(0))),
 			STANDARD_ITEMS,
 			"Frappe's sidebar band changed: beside the dock it is hidden, and only Search and "
-			"Notifications are drawn again at the dock's foot",
+			"Notifications are drawn again on the dock",
 		)
 
 	def test_the_boot_data_keeps_its_shape(self):

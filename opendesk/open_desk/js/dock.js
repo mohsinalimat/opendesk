@@ -15,13 +15,10 @@
 //     Spacers its Desk App sets, in place of Frappe's switcher rows;
 //   - the header names the app as well as the module, since the dock's lit tile is an app and
 //     Frappe's header names only the module;
-//   - Search and Notifications sit at the foot of the dock, over the user's avatar, rather than
-//     at the top of the sidebar. They are Frappe's own: the dock's buttons carry the classes
-//     Frappe opens search from (`navbar-modal-search-mobile`, a delegated click) and puts the
-//     unread count into (`notification-count`, every one on the page), and the bell toggles
-//     Frappe's notifications panel. Other apps' tiles follow them (`opendesk.dock.tools`, below):
-//     Commons' To Do, say, opening its own panel the same way. Frappe's panels open beside the
-//     dock, over the sidebar, rather than beside the sidebar;
+//   - Frappe puts Search and Notifications at the top of the dock while it is pinned (16.53,
+//     `Dock.render_utilities`). Other apps' tiles join them there (`opendesk.dock.tools`, below):
+//     Commons' To Do, say, opening its own panel the way the bell opens Notifications. Frappe's
+//     panels then open beside the dock, over the sidebar, rather than beside the sidebar;
 //   - the user menu's Manage Dock, which arranges a Dock nothing draws while the dock is on, gives
 //     way to Manage Desk Apps, and a click on the module list's header opens Manage Modules for that
 //     app (both `js/arrange.js`). They arrange what the dock does draw, and it is redrawn in
@@ -123,7 +120,7 @@
 // switches itself off for the rest of the page and Frappe's own method runs instead (`give_up`).
 // `test_frappe_seams.py` checks every name this hangs on is still in Frappe's source.
 //
-// Tiles of other apps' own, at the dock's foot after Search and Notifications. An app adds one by
+// Tiles of other apps' own, on the dock after Frappe's Search and Notifications. An app adds one by
 // pushing a description onto `opendesk.dock.tools`, which it makes itself if it loads first:
 //
 //   frappe.provide("opendesk.dock");
@@ -138,7 +135,7 @@
 //       on_draw: ($button) => {},      // optional: once the tile is on the page
 //   });
 //
-// A plain array, read when the dock draws its foot, so it does not matter which app's script
+// A plain array, read when the dock is made, so it does not matter which app's script
 // loads first, and an app that adds a tile needs nothing from this one when the dock is off or
 // this app is not installed. A tile that throws is left out.
 frappe.provide("opendesk.dock");
@@ -193,8 +190,10 @@ opendesk.dock.tools = opendesk.dock.tools || [];
 	}
 
 	$("body").addClass("opendesk-dock-on");
-	// The dock's foot, with Search, Notifications and other apps' tiles, is a switch of its own.
-	if (features.dock_tools) $("body").addClass("opendesk-dock-tools-on");
+	// Other apps' tiles beside Frappe's Search and Notifications on the dock are a switch of their
+	// own, and need Frappe's way of making such a tile (`Dock.make_utility`, 16.53).
+	const dock_tools = features.dock_tools && typeof Dock.prototype.make_utility === "function";
+	if (dock_tools) $("body").addClass("opendesk-dock-tools-on");
 	// And so is the dock in the sidebar's drawer below 768px (`should_pin`, below).
 	if (features.mobile_dock) $("body").addClass("opendesk-mobile-dock-on");
 	opendesk.boot_arrangement.place(dock_apps);
@@ -258,11 +257,15 @@ opendesk.dock.tools = opendesk.dock.tools || [];
 		);
 		const dock = frappe.app && frappe.app.sidebar && frappe.app.sidebar.dock;
 		if (dock) {
-			(dock.opendesk_tool_tips || []).forEach((tip) => tip.destroy());
+			const tips = dock.opendesk_tool_tips || [];
+			tips.forEach((tip) => tip.destroy());
+			if (dock.utility_tooltips) {
+				dock.utility_tooltips = dock.utility_tooltips.filter((tip) => !tips.includes(tip));
+			}
 			dock.opendesk_tool_tips = [];
 			if (dock.$items) destroy_tips(dock.$items.find(".opendesk-dock-group"));
 		}
-		$(".opendesk-dock-tools, .opendesk-module-tabs, .opendesk-edit-sidebar").remove();
+		$(".opendesk-dock-tool, .opendesk-module-tabs, .opendesk-edit-sidebar").remove();
 		// The line the dock added under the header's title: Frappe's header has none.
 		$(".sidebar-header .header-subtitle").remove();
 		$(".opendesk-header-plain, .opendesk-header-hidden").removeClass(
@@ -1826,69 +1829,23 @@ opendesk.dock.tools = opendesk.dock.tools || [];
 				[
 					...(dock.tooltips || []),
 					dock.header_tooltip,
-					...(dock.opendesk_tool_tips || []),
+					...(dock.utility_tooltips || []),
 					...group_tips,
 				].forEach((tip) => tip && tip.hide());
 			})
 		);
 	}
 
-	// Search, Notifications and other apps' tiles, at the foot of the dock. Built once, with the Dock.
+	// Other apps' tiles, on the dock under Frappe's Search and Notifications, which Frappe puts at
+	// its top (`Dock.render_utilities`) while it is pinned or the page has no sidebar. Made with
+	// Frappe's own `make_utility`, they come and go with that pair. Built once, with the Dock.
 	patch(Dock.prototype, "make", function (make_dock) {
 		const result = make_dock();
-		// Off, they stay at the top of the sidebar, where Frappe puts them.
-		if (!features.dock_tools) return result;
-		const $tools = $('<div class="opendesk-dock-tools"></div>').insertBefore(
-			this.$dock.find(".dock-user")
-		);
-		const tool = (name, label, icon, extra_class, suffix = "") => {
-			const $button = $(`<button
-				class="dock-item opendesk-dock-tool ${extra_class}"
-				data-tool="${name}"
-				aria-label="${frappe.utils.escape_html(label)}"
-			>
-				<span class="dock-item-icon">${frappe.utils.icon(icon, "md")}</span>
-				${suffix}
-			</button>`).appendTo($tools);
-			// Named as `Dock.name_tile` names a tile, but kept apart from the Dock's own tooltips,
-			// which every redraw of the dock destroys: these tiles are made once.
-			this.opendesk_tool_tips = this.opendesk_tool_tips || [];
-			this.opendesk_tool_tips.push(
-				new frappe.ui.Tooltip($button[0], {
-					text: label,
-					side: "right",
-					delay: 0,
-					offset: 10,
-					class: "es-tooltip--plain",
-				})
-			);
-			return $button;
-		};
-
-		if (frappe.boot.desk_settings && frappe.boot.desk_settings.search_bar) {
-			tool("search", __("Search"), "search", "navbar-modal-search-mobile").on(
-				"click",
-				guarded(() => this.close())
-			);
-		}
-		if (
-			frappe.boot.desk_settings &&
-			frappe.boot.desk_settings.notifications &&
-			frappe.session.user !== "Guest"
-		) {
-			// `sidebar-notification` is the panel's trigger, so a click on it does not count as a
-			// click outside that closes the panel it is opening.
-			tool(
-				"notifications",
-				__("Notifications"),
-				"bell",
-				"sidebar-notification",
-				'<span class="notification-count opendesk-dock-count hidden" aria-live="polite"></span>'
-			).on(
-				"click",
-				guarded(() => frappe.ui.sidebar_panels.toggle("notifications"))
-			);
-		}
+		// Off, they stay at the top of the sidebar, where their apps put them.
+		if (!dock_tools) return result;
+		const $utilities = this.$dock.find(".dock-utilities");
+		// Their tips, among the Dock's `utility_tooltips`, taken out again if the dock gives up.
+		this.opendesk_tool_tips = [];
 		opendesk.dock.tools.forEach((spec) => {
 			let $button = null;
 			try {
@@ -1898,13 +1855,16 @@ opendesk.dock.tools = opendesk.dock.tools || [];
 							spec.badge_class
 					  )} opendesk-dock-count hidden" aria-live="polite"></span>`
 					: "";
-				$button = tool(
-					frappe.utils.escape_html(spec.name),
-					spec.label || spec.name,
-					spec.icon || "square",
-					frappe.utils.escape_html(spec.class || ""),
-					badge
-				);
+				const tips = this.utility_tooltips.length;
+				$button = this.make_utility({
+					label: spec.label || spec.name,
+					icon: spec.icon || "square",
+					css_class: `opendesk-dock-tool ${frappe.utils.escape_html(spec.class || "")}`,
+					badge,
+				})
+					.attr("data-tool", spec.name)
+					.appendTo($utilities);
+				this.opendesk_tool_tips.push(...this.utility_tooltips.slice(tips));
 				// Another app's handler: its failure is that app's, and leaves the dock on.
 				if (spec.on_click) {
 					$button.on("click", () => {
