@@ -322,16 +322,29 @@ const app_with_choice = (page) =>
         tools: [
           ...document.querySelectorAll(".dock .dock-utilities [data-tool]"),
         ].map((el) => el.dataset.tool),
+        // Right over the user menu, or under the mark, as Frappe has it.
+        at_bottom:
+          document
+            .querySelector(".dock .dock-utilities")
+            ?.nextElementSibling?.classList.contains("dock-user") || false,
       }));
       // Frappe's own pair (`Dock.render_utilities`); Open Desk draws no second one.
       assert(dock.search <= 1, `${dock.search} Search tiles on the dock`);
       assert(dock.bells <= 1, `${dock.bells} bells on the dock`);
+      assert(
+        dock.at_bottom === !!features.dock_tools_bottom,
+        dock.at_bottom
+          ? "Search and Notifications are at the bottom of the dock, though the setting is off"
+          : "Search and Notifications are not at the bottom of the dock, though the setting is on"
+      );
       const tiles = [
         dock.search && "search",
         dock.bells && "notifications",
         ...dock.tools,
       ].filter(Boolean);
-      return tiles.join(", ") || "none";
+      return `${tiles.join(", ") || "none"}, at the ${
+        dock.at_bottom ? "bottom" : "top"
+      }`;
     });
 
     await check("picking an app, and then a module", async () => {

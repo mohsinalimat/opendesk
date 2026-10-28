@@ -19,6 +19,9 @@ ENABLE_DOCK = "enable_dock"
 # Other apps' tiles moved from the top of the sidebar onto the dock, under the Search and
 # Notifications Frappe puts there (`js/dock.js`, `scss/dock.scss`). Only with the dock.
 ENABLE_DOCK_TOOLS = "enable_dock_tools"
+# Search, Notifications and the tiles beside them at the bottom of the dock, over the user menu,
+# rather than at its top, where Frappe puts them (`js/dock.js`, `scss/dock.scss`). Only with the dock.
+DOCK_TOOLS_AT_BOTTOM = "dock_tools_at_bottom"
 # Below 768px, the dock in the sidebar's drawer (`js/dock.js`, `scss/dock.scss`). On unless
 # switched off: a site that has not saved the settings since the field arrived has no value for it.
 SHOW_DOCK_ON_MOBILE = "show_dock_on_mobile"
@@ -42,6 +45,7 @@ ENABLE_USER_MENU = "enable_user_menu"
 DESK_FEATURES = {
 	"dock": ENABLE_DOCK,
 	"dock_tools": ENABLE_DOCK_TOOLS,
+	"dock_tools_bottom": DOCK_TOOLS_AT_BOTTOM,
 	"apps_screen": ENABLE_APPS_SCREEN,
 	"user_menu": ENABLE_USER_MENU,
 }

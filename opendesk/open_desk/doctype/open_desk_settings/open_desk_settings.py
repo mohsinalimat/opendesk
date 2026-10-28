@@ -17,6 +17,7 @@ class OpenDeskSettings(Document):
 		from frappe.types import DF
 
 		app_pick: DF.Literal["Show Its Modules", "Open Last Module", "Open Last Sidebar Item"]
+		dock_tools_at_bottom: DF.Check
 		enable_apps_screen: DF.Check
 		enable_dock: DF.Check
 		enable_dock_tools: DF.Check

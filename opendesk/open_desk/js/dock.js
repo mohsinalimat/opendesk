@@ -18,7 +18,9 @@
 //   - Frappe puts Search and Notifications at the top of the dock while it is pinned (16.53,
 //     `Dock.render_utilities`). Other apps' tiles join them there (`opendesk.dock.tools`, below):
 //     Commons' To Do, say, opening its own panel the way the bell opens Notifications. Frappe's
-//     panels then open beside the dock, over the sidebar, rather than beside the sidebar;
+//     panels then open beside the dock, over the sidebar, rather than beside the sidebar. All of
+//     them can sit at the bottom of the dock instead, over the user menu ("Move Search and
+//     Notifications to Bottom of Dock");
 //   - the user menu's Manage Dock, which arranges a Dock nothing draws while the dock is on, gives
 //     way to Manage Desk Apps, and a click on the module list's header opens Manage Modules for that
 //     app (both `js/arrange.js`). They arrange what the dock does draw, and it is redrawn in
@@ -194,6 +196,8 @@ opendesk.dock.tools = opendesk.dock.tools || [];
 	// own, and need Frappe's way of making such a tile (`Dock.make_utility`, 16.53).
 	const dock_tools = features.dock_tools && typeof Dock.prototype.make_utility === "function";
 	if (dock_tools) $("body").addClass("opendesk-dock-tools-on");
+	// And so is where they all go: the top of the dock, as Frappe has it, or its bottom.
+	if (features.dock_tools_bottom) $("body").addClass("opendesk-dock-tools-bottom");
 	// And so is the dock in the sidebar's drawer below 768px (`should_pin`, below).
 	if (features.mobile_dock) $("body").addClass("opendesk-mobile-dock-on");
 	opendesk.boot_arrangement.place(dock_apps);
@@ -253,10 +257,14 @@ opendesk.dock.tools = opendesk.dock.tools || [];
 			// Reporting is a courtesy; the desk is Frappe's either way.
 		}
 		$("body").removeClass(
-			"opendesk-dock-on opendesk-dock-tools-on opendesk-tabs-on opendesk-modules-beside"
+			"opendesk-dock-on opendesk-dock-tools-on opendesk-dock-tools-bottom opendesk-tabs-on opendesk-modules-beside"
 		);
 		const dock = frappe.app && frappe.app.sidebar && frappe.app.sidebar.dock;
 		if (dock) {
+			// Search and Notifications back under the mark, where Frappe made them.
+			if (dock.$dock) {
+				dock.$dock.find(".dock-utilities").insertAfter(dock.$dock.find(".dock-logo"));
+			}
 			const tips = dock.opendesk_tool_tips || [];
 			tips.forEach((tip) => tip.destroy());
 			if (dock.utility_tooltips) {
@@ -1841,9 +1849,12 @@ opendesk.dock.tools = opendesk.dock.tools || [];
 	// Frappe's own `make_utility`, they come and go with that pair. Built once, with the Dock.
 	patch(Dock.prototype, "make", function (make_dock) {
 		const result = make_dock();
-		// Off, they stay at the top of the sidebar, where their apps put them.
-		if (!dock_tools) return result;
 		const $utilities = this.$dock.find(".dock-utilities");
+		// All of them at the bottom of the dock, over the user menu: the slot itself moves, so
+		// Frappe's showing and hiding of it, and what it holds, are unchanged.
+		if (features.dock_tools_bottom) $utilities.insertBefore(this.$dock.find(".dock-user"));
+		// Off, other apps' tiles stay at the top of the sidebar, where their apps put them.
+		if (!dock_tools) return result;
 		// Their tips, among the Dock's `utility_tooltips`, taken out again if the dock gives up.
 		this.opendesk_tool_tips = [];
 		opendesk.dock.tools.forEach((spec) => {

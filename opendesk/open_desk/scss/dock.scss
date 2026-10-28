@@ -186,6 +186,26 @@ body.opendesk-dock-on .dock .dock-utilities {
 	}
 }
 
+// With "Move Search and Notifications to Bottom of Dock" (`opendesk-dock-tools-bottom`) the slot
+// sits over the user menu (`js/dock.js` moves it), so its rule is the one above it, and the tiles
+// start under the mark's band as they do where the slot is empty (Frappe's `.dock-logo +
+// .dock-utilities:empty + .dock-items`).
+body.opendesk-dock-tools-bottom .dock {
+	.dock-utilities:not(:empty) {
+		margin-top: calc(var(--spacing) * 2);
+		padding-top: calc(var(--spacing) * 3);
+		margin-bottom: 0;
+		padding-bottom: 0;
+		border-top: 1px solid var(--outline-gray-1);
+		border-bottom: none;
+	}
+
+	.dock-logo + .dock-items {
+		margin-top: calc(var(--spacing) * -1);
+		padding-top: calc(var(--spacing) * 3);
+	}
+}
+
 // With "Move Other Apps' Tiles to Dock" (`opendesk-dock-tools-on`) other apps' tiles (`opendesk.dock.tools`)
 // join Search and Notifications on the dock, and the sidebar's band, where those apps put them,
 // goes wherever Frappe takes the pair out of it: beside a pinned dock, and in the drawer with the
